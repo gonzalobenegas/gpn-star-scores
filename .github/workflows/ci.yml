@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          version: 0.9.5
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Install locked dependencies
+        run: uv sync --locked --group dev --python 3.13
+
+      - name: Run pre-commit hooks
+        run: uv run --locked pre-commit run --all-files
+
+      - name: Import package
+        run: uv run --locked python -c "import gpn_star_scores"
+
+      - name: Dry-run workflow
+        run: >-
+          uv run --locked snakemake
+          --snakefile workflow/Snakefile
+          --cores 1
+          --dry-run

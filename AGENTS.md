@@ -7,6 +7,11 @@ score release. Keep workflow code, small test fixtures, manifests, reports,
 and release documentation in Git. Keep full-size source data and generated
 Parquet, WIG, bedGraph, and BigWig artifacts outside Git.
 
+The Python package lives in `src/gpn_star_scores/`, tests live in `tests/`,
+and the Snakemake workflow lives in `workflow/`. Use `uv` and the committed
+`uv.lock` for the Python project environment. Use rule-local Conda environments
+only for external command-line tools that are not Python project dependencies.
+
 Work from a GitHub issue and keep each branch and pull request focused on that
 issue. Read the release epic, the issue, and any merged dependencies before
 implementing. State assumptions when repository evidence is incomplete; do
@@ -43,6 +48,15 @@ body with:
 
 ## Workflow and execution
 
+- Keep Snakefiles focused on the DAG, named inputs and outputs, configuration,
+  resources, logs, Conda environments, and thin calls. Put non-trivial Python
+  transformations, validation, benchmarking, and reporting in importable
+  functions under `src/gpn_star_scores/`, with pytest coverage. Do not add
+  standalone Python scripts under `workflow/`.
+- Run Snakemake through the locked project environment with
+  `uv run --locked snakemake`. Python `run:` blocks use that project
+  environment; rule-local Conda environments belong on `shell`, `script`, or
+  wrapper rules that need external tools.
 - Keep Snakemake rules scheduler-neutral. Put SCF partition names and
   scheduler-specific settings in the committed SCF profile.
 - Local execution must remain supported. Production cluster execution uses
@@ -64,6 +78,11 @@ body with:
 
 ## Validation and evidence
 
+- Before committing, run `uv run --locked pre-commit run --all-files`. This is
+  the normal fast gate and includes Ruff linting and formatting, Snakefmt, and
+  the complete fast pytest suite.
+- Mark slow, network, cluster, and production-data tests explicitly. Keep them
+  out of the fast pre-commit gate and document how and where they were run.
 - Start with small synthetic fixtures and local dry-runs. Exercise relevant
   schema, chromosome-gap, coordinate-boundary, and failure-restart behavior
   before production-scale work.

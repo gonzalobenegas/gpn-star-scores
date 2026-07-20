@@ -34,7 +34,9 @@ requires author validation. Write "Not applicable" when appropriate. -->
 
 <!-- Include exact commands and outcomes. Do not mark checks that were not run. -->
 
-- [ ] Local or synthetic-fixture checks pass.
+- [ ] `uv lock --check` passes after dependency changes, if applicable.
+- [ ] `uv run --locked pre-commit run --all-files` passes.
+- [ ] The fast pytest suite passes with no network or production data.
 - [ ] Snakemake dry-run passes, if applicable.
 - [ ] Representative SCF pilot passes, if applicable.
 - [ ] Interrupted or incomplete outputs rerun safely, if applicable.
