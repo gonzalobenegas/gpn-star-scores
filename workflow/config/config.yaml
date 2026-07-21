@@ -81,3 +81,41 @@ parquet_benchmark:
       mem_mb: null
       runtime: null
       disk_mb: null
+
+bigwig:
+  # Keep production tracks opt-in. Enable only with finalized issue #8 and #5
+  # evidence and resource values from the issue #7 epurdom pilot.
+  enabled: false
+  source_root: null
+  output_root: results/bigwig
+  inventory_manifest: null
+  parquet_selection: null
+  selection_report: null
+  batch_size: 262144
+  sample_count: 1024
+  benchmark:
+    enabled: false
+    output_root: results/bigwig-benchmark
+    repetitions: 5
+    cases: []
+  resources:
+    benchmark:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    report:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    build_chromosome:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    concatenate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    aggregate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null

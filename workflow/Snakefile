@@ -16,6 +16,7 @@ PYTHON_EXECUTABLE = sys.executable
 include: "rules/common.smk"
 include: "rules/inventory.smk"
 include: "rules/parquet_benchmark.smk"
+include: "rules/bigwig.smk"
 
 
 rule artifacts:
@@ -23,6 +24,7 @@ rule artifacts:
     input:
         inventory_targets(),
         parquet_benchmark_targets(),
+        bigwig_targets(),
 
 
 rule all:

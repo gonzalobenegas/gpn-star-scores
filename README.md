@@ -95,3 +95,11 @@ on 2026-07-20 found that the 290 current Parquet files themselves total
 and its retained versions. Keep `expected_shard_bytes` unset until an author
 approves which release number is canonical, then record that decision in the
 production config and pull request evidence.
+
+## BigWig tracks
+
+Issue #7's opt-in generation and validation workflow is described in
+[`docs/bigwig-benchmark.md`](docs/bigwig-benchmark.md). It consumes the merged
+inventory, Parquet-layout, and SCF-profile interfaces from issues #8, #5, and
+#9, benchmarks WIG conversion against direct streaming, and produces five
+validated final tracks for each score set.

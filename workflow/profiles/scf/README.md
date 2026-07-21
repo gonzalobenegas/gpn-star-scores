@@ -74,6 +74,10 @@ non-first wildcard tasks can run the correct command but validate the first
 task's output. The production rules remain explicitly selected for arrays as
 required by the release plan, but production array execution is blocked until
 an upstream fix is released, pinned, and passes this workflow's SCF pilot.
+An authorized production run that cannot wait for that fix may submit the same
+restart units as individual jobs with `--slurm-array-jobs=`. Record that
+override and the resulting job IDs with the production evidence; it does not
+qualify as the required array pilot.
 
 ## Exceptional partition override
 

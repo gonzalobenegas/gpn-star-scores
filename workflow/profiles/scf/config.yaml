@@ -28,10 +28,12 @@ set-threads:
   rewrite_parquet_shard: 4
   validate_parquet_shard: 4
   benchmark_parquet_shard: 4
+  benchmark_bigwig_method: 1
   build_chromosome_bigwig: 1
   concatenate_bigwig: 1
   aggregate_validation: 1
   render_report: 1
+  render_bigwig_report: 1
 
 set-resources:
   scf_smoke_chromosome:
@@ -52,6 +54,8 @@ set-resources:
     slurm_partition: epurdom
   benchmark_parquet_shard:
     slurm_partition: epurdom
+  benchmark_bigwig_method:
+    slurm_partition: epurdom
   build_chromosome_bigwig:
     slurm_partition: epurdom
   concatenate_bigwig:
@@ -59,4 +63,6 @@ set-resources:
   aggregate_validation:
     slurm_partition: high
   render_report:
+    slurm_partition: high
+  render_bigwig_report:
     slurm_partition: high
