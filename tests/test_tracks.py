@@ -1,14 +1,16 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
 from gpn_star_scores.catalog import EXPECTED_SHARD_COUNT, expected_shards
-from gpn_star_scores.bigwig import ChromosomeSpec
+from gpn_star_scores.bigwig import ChromosomeSpec, validate_bigwig
 from gpn_star_scores.inventory import sha256_file
 from gpn_star_scores.tracks import (
     assembly_chromosome_sizes_from_contract,
@@ -248,3 +250,54 @@ bigwig:
     assert "build_chromosome_bigwig" in result.stdout
     assert "concatenate_bigwig" in result.stdout
     assert "aggregate_validation" in result.stdout
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("method", ["wig", "direct"])
+def test_real_ucsc_tools_concatenate_full_assembly_headers(
+    tmp_path: Path, method: str
+) -> None:
+    executables = {
+        name: shutil.which(name) for name in ("wigToBigWig", "bigWigCat", "bigWigInfo")
+    }
+    if any(path is None for path in executables.values()):
+        pytest.skip("pinned UCSC command-line tools are not installed")
+    header_sizes = {"chr1": 3, "chr2": 2}
+    inputs = []
+    for chrom, position, value in (("1", 1, 0.25), ("2", 2, 0.5)):
+        source = tmp_path / f"chr{chrom}.parquet"
+        pq.write_table(
+            pa.table(
+                {
+                    "chrom": pa.array([chrom]),
+                    "pos": pa.array([position], type=pa.int64()),
+                    "ref": pa.array(["A"]),
+                    "entropy_calibrated": pa.array([value], type=pa.float32()),
+                }
+            ),
+            source,
+        )
+        outputs, _ = build_score_type_tracks(
+            source,
+            tmp_path / f"{method}-chr{chrom}",
+            score_type="entropy",
+            method=method,
+            chromosome=ChromosomeSpec(
+                chrom, f"chr{chrom}", header_sizes[f"chr{chrom}"]
+            ),
+            wig_to_bigwig=str(executables["wigToBigWig"]),
+            header_chromosome_sizes=header_sizes,
+        )
+        inputs.append(outputs["entropy"])
+
+    combined = tmp_path / f"{method}.bw"
+    subprocess.run(
+        [str(executables["bigWigCat"]), str(combined), *map(str, inputs)],
+        check=True,
+    )
+    subprocess.run(
+        [str(executables["bigWigInfo"]), str(combined)],
+        check=True,
+        capture_output=True,
+    )
+    validate_bigwig(combined, header_sizes, expected_bases_covered=2)
