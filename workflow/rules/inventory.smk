@@ -11,6 +11,7 @@ from gpn_star_scores.catalog import (
     score_set_assembly,
 )
 from gpn_star_scores.inventory import (
+    ensure_output_root_outside_source,
     inspect_shard_to_json,
     prepare_reference,
     write_release_outputs,
@@ -43,6 +44,10 @@ if INVENTORY_ENABLED:
             "inventory.source_root is required when inventory is enabled"
         )
     SOURCE_ROOT = Path(INVENTORY_CONFIG["source_root"])
+    try:
+        ensure_output_root_outside_source(SOURCE_ROOT, INVENTORY_OUTPUT_ROOT)
+    except ValueError as error:
+        raise WorkflowError(str(error)) from error
     REFERENCE_CONFIGS = INVENTORY_CONFIG.get("reference_fastas", {})
     missing_reference_config = sorted(set(ASSEMBLIES) - set(REFERENCE_CONFIGS))
     if missing_reference_config:

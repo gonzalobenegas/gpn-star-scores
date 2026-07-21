@@ -68,10 +68,12 @@ uv run --locked snakemake \
 ```
 
 The workflow reads each expected Parquet shard and supplied Ensembl FASTA but
-never writes beside them. Each FASTA must retain its original pinned filename
-and match an author-approved SHA-256. The workflow prepares memory-mappable
-reference contigs under the configured scratch output, validates each shard as
-a chromosome-level restart unit, and atomically promotes:
+never writes beside them. It rejects an output root that resolves inside the
+immutable staged source tree. Each FASTA must retain its original pinned
+filename and match an author-approved SHA-256. The workflow prepares
+memory-mappable reference contigs under the configured scratch output,
+validates each shard as a chromosome-level restart unit, and atomically
+promotes:
 
 - one JSON validation record per shard under `shards/`;
 - reference provenance and SHA-256 records under `references/`;

@@ -29,6 +29,7 @@ from gpn_star_scores.catalog import (
 
 _BASES = np.array(["A", "C", "G", "T"])
 _BASE_TO_CODE = {"A": 0, "C": 1, "G": 2, "T": 3}
+_HUGGING_FACE_ORGANIZATION = "songlab"
 
 EXPECTED_SCHEMAS: dict[str, pa.Schema] = {
     "entropy": pa.schema(
@@ -60,6 +61,18 @@ def sha256_file(path: Path, chunk_size: int = 8 * 1024 * 1024) -> str:
         while chunk := handle.read(chunk_size):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def ensure_output_root_outside_source(source_root: Path, output_root: Path) -> None:
+    """Reject generated output paths inside the immutable staged source tree."""
+
+    resolved_source = Path(source_root).resolve()
+    resolved_output = Path(output_root).resolve()
+    if resolved_output == resolved_source or resolved_source in resolved_output.parents:
+        raise ValueError(
+            "inventory.output_root must be outside the immutable source_root: "
+            f"source_root={resolved_source}, output_root={resolved_output}"
+        )
 
 
 def _json_value(value: Any) -> Any:
@@ -138,8 +151,8 @@ def _parquet_metadata(parquet_file: pq.ParquetFile) -> dict[str, Any]:
                 stats_record["row_groups_present"] += 1
                 if statistics.has_min_max:
                     stats_record["row_groups_with_min_max"] += 1
-                    minimum = _json_value(statistics.min)
-                    maximum = _json_value(statistics.max)
+                    minimum = statistics.min
+                    maximum = statistics.max
                     if stats_record["min"] is None or minimum < stats_record["min"]:
                         stats_record["min"] = minimum
                     if stats_record["max"] is None or maximum > stats_record["max"]:
@@ -159,6 +172,9 @@ def _parquet_metadata(parquet_file: pq.ParquetFile) -> dict[str, Any]:
     for record in columns.values():
         record["compression_codecs"] = sorted(record["compression_codecs"])
         record["encodings"] = sorted(record["encodings"])
+        statistics = record["statistics"]
+        statistics["min"] = _json_value(statistics["min"])
+        statistics["max"] = _json_value(statistics["max"])
 
     return {
         "format_version": metadata.format_version,
@@ -739,7 +755,7 @@ def build_manifest(
     total_bytes = sum(record["size"] or 0 for record in records)
     invalid_records = [record for record in records if not record["valid"]]
     capacity = dict(hugging_face_capacity or {})
-    capacity.setdefault("organization", "songlab")
+    capacity.setdefault("organization", _HUGGING_FACE_ORGANIZATION)
     capacity.setdefault("confirmed", False)
     capacity.setdefault("evidence", None)
     capacity.setdefault("confirmed_by", None)
@@ -758,16 +774,27 @@ def build_manifest(
         isinstance(value, int) and not isinstance(value, bool) and value >= 0
         for value in capacity_numbers
     )
+    organization_matches = capacity["organization"] == _HUGGING_FACE_ORGANIZATION
+    confirmation_complete = capacity["confirmed"] is True and all(
+        isinstance(capacity[field], str) and bool(capacity[field].strip())
+        for field in ("evidence", "confirmed_by", "confirmed_at")
+    )
     required_capacity_bytes = None
+    planned_release_covers_shards = False
     capacity_sufficient = False
     if numeric_capacity_evidence:
         required_capacity_bytes = sum(capacity_numbers[:3])
+        planned_release_covers_shards = capacity["planned_release_bytes"] >= total_bytes
         capacity_sufficient = (
-            capacity["confirmed"]
-            and bool(capacity["evidence"])
+            organization_matches
+            and confirmation_complete
+            and planned_release_covers_shards
             and capacity["approved_capacity_bytes"] >= required_capacity_bytes
         )
     capacity["required_capacity_bytes"] = required_capacity_bytes
+    capacity["organization_matches"] = organization_matches
+    capacity["confirmation_complete"] = confirmation_complete
+    capacity["planned_release_covers_shards"] = planned_release_covers_shards
     capacity["sufficient"] = capacity_sufficient
 
     blockers = []
@@ -846,6 +873,18 @@ def build_manifest(
     }
 
 
+def _format_byte_count(value: Any) -> str:
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return f"{value:,} bytes"
+    return "not recorded"
+
+
+def _format_nonblank_text(value: Any) -> str:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return "not recorded"
+
+
 def render_summary(manifest: Mapping[str, Any]) -> str:
     """Render the human-readable companion to a machine-readable manifest."""
 
@@ -897,24 +936,15 @@ def render_summary(manifest: Mapping[str, Any]) -> str:
             "## Hugging Face capacity",
             "",
             f"- Organization: `{capacity['organization']}`",
-            f"- Confirmed: {'yes' if capacity['confirmed'] else 'no'}",
+            f"- Confirmed: {'yes' if capacity['confirmed'] is True else 'no'}",
+            f"- Planned release: {_format_byte_count(capacity['planned_release_bytes'])}",
             (
-                "- Required capacity: "
-                + (
-                    f"{capacity['required_capacity_bytes']:,} bytes"
-                    if capacity["required_capacity_bytes"] is not None
-                    else "not recorded"
-                )
+                "- Planned release covers inventoried shards: "
+                f"{'yes' if capacity['planned_release_covers_shards'] else 'no'}"
             ),
-            (
-                "- Approved capacity: "
-                + (
-                    f"{capacity['approved_capacity_bytes']:,} bytes"
-                    if capacity["approved_capacity_bytes"] is not None
-                    else "not recorded"
-                )
-            ),
-            f"- Evidence: {capacity['evidence'] or 'not recorded'}",
+            f"- Required capacity: {_format_byte_count(capacity['required_capacity_bytes'])}",
+            f"- Approved capacity: {_format_byte_count(capacity['approved_capacity_bytes'])}",
+            f"- Evidence: {_format_nonblank_text(capacity['evidence'])}",
             "",
             "## Blockers",
             "",

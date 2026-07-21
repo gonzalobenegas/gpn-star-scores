@@ -1,6 +1,7 @@
 inventory:
   enabled: true
   source_root: /shared/project/staged/gpn-star_scores
+  # Must resolve outside source_root so generated files never enter staging.
   output_root: /shared/project/scratch/gpn-star-scores/inventory
   batch_size: 1048576
 
@@ -33,7 +34,8 @@ inventory:
       sha256: null
 
   # Record private approval or quota evidence without putting credentials or
-  # sensitive account details in Git.
+  # sensitive account details in Git. planned_release_bytes must include at
+  # least all inventoried Parquets plus every generated release artifact.
   hugging_face_capacity:
     organization: songlab
     confirmed: false

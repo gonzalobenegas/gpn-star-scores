@@ -13,9 +13,11 @@ from gpn_star_scores.catalog import ASSEMBLIES, ShardSpec, expected_shards
 from gpn_star_scores.inventory import (
     atomic_write_json,
     build_manifest,
+    ensure_output_root_outside_source,
     inspect_shard,
     inspect_shard_to_json,
     prepare_reference,
+    render_summary,
     sha256_file,
     write_release_outputs,
 )
@@ -124,6 +126,31 @@ def test_missing_physical_statistics_are_not_reported_as_complete(
     assert statistics["row_groups_present"] == 0
     assert statistics["null_count"] == 0
     assert not statistics["null_count_complete"]
+
+
+def test_infinite_statistics_do_not_abort_non_finite_reporting(
+    tmp_path: Path,
+) -> None:
+    source = _write_entropy(
+        tmp_path / "entropy_chr1.parquet",
+        score=[0.1, float("inf"), 0.3, 0.4],
+    )
+    reference = _write_reference(tmp_path / "1.seq")
+
+    record = inspect_shard(
+        source,
+        ShardSpec("test", "test", "entropy", "1"),
+        reference,
+        batch_size=2,
+    )
+
+    assert not record["valid"]
+    assert (
+        record["parquet"]["columns"]["entropy_calibrated"]["statistics"]["max"]
+        == "+Infinity"
+    )
+    assert record["content"]["non_finite_counts"] == {"entropy_calibrated": 1}
+    assert "non_finite_scores" in {error["check"] for error in record["errors"]}
 
 
 def test_llr_alt_order_is_unconstrained_and_groups_can_cross_batches(
@@ -344,6 +371,22 @@ def _fake_complete_inventory(tmp_path: Path) -> tuple[Path, list[Path], list[Pat
     return source_root, shard_reports, reference_reports
 
 
+def test_output_root_must_be_outside_immutable_source(tmp_path: Path) -> None:
+    source_root = tmp_path / "staged"
+    source_root.mkdir()
+
+    with pytest.raises(ValueError, match="outside the immutable source_root"):
+        ensure_output_root_outside_source(source_root, source_root)
+    with pytest.raises(ValueError, match="outside the immutable source_root"):
+        ensure_output_root_outside_source(source_root, source_root / "inventory")
+    source_alias = tmp_path / "staged-alias"
+    source_alias.symlink_to(source_root, target_is_directory=True)
+    with pytest.raises(ValueError, match="outside the immutable source_root"):
+        ensure_output_root_outside_source(source_root, source_alias / "inventory")
+
+    ensure_output_root_outside_source(source_root, tmp_path / "scratch" / "inventory")
+
+
 def test_manifest_accounts_for_every_shard_and_capacity_evidence(
     tmp_path: Path,
 ) -> None:
@@ -374,6 +417,55 @@ def test_manifest_accounts_for_every_shard_and_capacity_evidence(
         "release_ready": True,
         "blockers": [],
     }
+
+
+def test_manifest_rejects_incomplete_or_underbudgeted_capacity_evidence(
+    tmp_path: Path,
+) -> None:
+    source_root, shard_reports, reference_reports = _fake_complete_inventory(tmp_path)
+    valid_capacity = {
+        "organization": "songlab",
+        "confirmed": True,
+        "evidence": "Private capacity approval ABC-123",
+        "confirmed_by": "author",
+        "confirmed_at": "2026-07-20",
+        "current_storage_bytes": 600,
+        "planned_release_bytes": 300,
+        "reserved_headroom_bytes": 100,
+        "approved_capacity_bytes": 1_000,
+    }
+    invalid_overrides = [
+        {"planned_release_bytes": 0},
+        {"organization": "another-organization"},
+        {"confirmed": 1},
+        {"evidence": "   "},
+        {"confirmed_by": None},
+        {"confirmed_at": None},
+        {"approved_capacity_bytes": True},
+    ]
+
+    for capacity_override in invalid_overrides:
+        capacity = valid_capacity | capacity_override
+        manifest = build_manifest(
+            source_root,
+            shard_reports,
+            reference_reports,
+            expected_shard_bytes=290,
+            hugging_face_capacity=capacity,
+        )
+
+        assert not manifest["hugging_face_capacity"]["sufficient"]
+        assert not manifest["validation"]["release_ready"]
+        assert any(
+            "Hugging Face organization capacity" in blocker
+            for blocker in manifest["validation"]["blockers"]
+        )
+        if capacity_override == {"confirmed": 1}:
+            assert "- Confirmed: no" in render_summary(manifest)
+        if capacity_override == {"approved_capacity_bytes": True}:
+            assert "- Approved capacity: not recorded" in render_summary(manifest)
+        if capacity_override == {"evidence": "   "}:
+            assert "- Evidence: not recorded" in render_summary(manifest)
 
 
 def test_release_directory_is_atomic_and_capacity_is_a_blocker(
