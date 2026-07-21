@@ -1,0 +1,12 @@
+"""GPN-Star genome-wide score release workflow."""
+
+
+configfile: workflow.source_path("config/config.yaml")
+
+
+include: "rules/common.smk"
+
+
+rule all:
+    input:
+        [],
