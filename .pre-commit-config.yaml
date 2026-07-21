@@ -27,7 +27,7 @@ repos:
       - id: pytest
         name: pytest (fast suite)
         entry: uv run --locked pytest
-        args: [-m, "not slow"]
+        args: [-m, "not (slow or network or cluster or production_data)"]
         language: system
         pass_filenames: false
         always_run: true

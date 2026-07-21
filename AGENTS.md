@@ -81,8 +81,10 @@ body with:
 - Before committing, run `uv run --locked pre-commit run --all-files`. This is
   the normal fast gate and includes Ruff linting and formatting, Snakefmt, and
   the complete fast pytest suite.
-- Mark slow, network, cluster, and production-data tests explicitly. Keep them
-  out of the fast pre-commit gate and document how and where they were run.
+- Mark slow, network, cluster, and production-data tests with the `slow`,
+  `network`, `cluster`, or `production_data` pytest markers. Keep all four
+  categories out of the fast pre-commit gate and document how and where they
+  were run.
 - Start with small synthetic fixtures and local dry-runs. Exercise relevant
   schema, chromosome-gap, coordinate-boundary, and failure-restart behavior
   before production-scale work.

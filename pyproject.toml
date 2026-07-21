@@ -39,5 +39,8 @@ target-version = "py313"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "slow: network, cluster, production-data, or otherwise slow tests excluded from pre-commit",
+    "slow: slow tests excluded from the fast pre-commit gate",
+    "network: tests that require network access",
+    "cluster: tests that require a cluster or scheduler",
+    "production_data: tests that require staged or published production data",
 ]

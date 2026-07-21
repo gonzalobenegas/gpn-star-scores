@@ -22,7 +22,8 @@ uv run --locked pre-commit run --all-files
 
 That command checks file hygiene, Ruff linting and formatting, Snakefmt, and
 the complete fast pytest suite. Slow, network, cluster, and production-data
-tests are marked separately and are not part of the pre-commit gate.
+tests use the `slow`, `network`, `cluster`, and `production_data` markers and
+are not part of the pre-commit gate.
 
 The workflow scaffold should also dry-run locally:
 
