@@ -31,6 +31,12 @@ The workflow scaffold should also dry-run locally:
 uv run --locked snakemake --snakefile workflow/Snakefile --cores 1 --dry-run
 ```
 
+Release artifacts and publication are separate targets. Build artifacts with
+`artifacts`; invoke `publish` only from one intentional local process after all
+release gates pass. Berkeley SCF users should follow the committed
+[`workflow/profiles/scf`](workflow/profiles/scf/README.md) profile, including
+its two-chromosome environment smoke test, before submitting production work.
+
 ## Repository layout
 
 - `src/gpn_star_scores/`: importable Python transformation, validation,

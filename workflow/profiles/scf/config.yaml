@@ -1,0 +1,52 @@
+executor: slurm
+jobs: 64
+local-cores: 1
+rerun-incomplete: true
+retries: 2
+
+slurm-array-jobs: >-
+  validate_source_shard,
+  rewrite_parquet_shard,
+  build_chromosome_bigwig
+slurm-array-limit: 64
+latency-wait: 60
+slurm-logdir: logs/slurm
+slurm-keep-successful-logs: true
+slurm-delete-logfiles-older-than: 0
+slurm-efficiency-report: true
+slurm-efficiency-report-path: logs/slurm-efficiency
+slurm-jobname-prefix: gpn-star
+
+set-threads:
+  scf_smoke_chromosome: 4
+  inventory_source_shard: 4
+  validate_source_shard: 4
+  rewrite_parquet_shard: 4
+  validate_parquet_shard: 4
+  benchmark_parquet_shard: 4
+  build_chromosome_bigwig: 1
+  concatenate_bigwig: 1
+  aggregate_validation: 1
+  render_report: 1
+
+set-resources:
+  scf_smoke_chromosome:
+    slurm_partition: epurdom
+  inventory_source_shard:
+    slurm_partition: epurdom
+  validate_source_shard:
+    slurm_partition: epurdom
+  rewrite_parquet_shard:
+    slurm_partition: epurdom
+  validate_parquet_shard:
+    slurm_partition: epurdom
+  benchmark_parquet_shard:
+    slurm_partition: epurdom
+  build_chromosome_bigwig:
+    slurm_partition: epurdom
+  concatenate_bigwig:
+    slurm_partition: high
+  aggregate_validation:
+    slurm_partition: high
+  render_report:
+    slurm_partition: high

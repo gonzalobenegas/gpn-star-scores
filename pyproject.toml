@@ -12,11 +12,11 @@ license = "Apache-2.0"
 dependencies = [
     "huggingface-hub",
     "numpy",
-    "polars",
-    "pyarrow",
-    "pybigwig",
-    "snakemake>=9.23,<10",
-    "snakemake-executor-plugin-slurm",
+    "polars==1.42.1",
+    "pyarrow==25.0.0",
+    "pybigwig==0.3.25",
+    "snakemake==9.23.1",
+    "snakemake-executor-plugin-slurm==2.7.1",
 ]
 
 [dependency-groups]

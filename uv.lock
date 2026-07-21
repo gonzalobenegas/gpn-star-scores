@@ -260,11 +260,11 @@ dev = [
 requires-dist = [
     { name = "huggingface-hub" },
     { name = "numpy" },
-    { name = "polars" },
-    { name = "pyarrow" },
-    { name = "pybigwig" },
-    { name = "snakemake", specifier = ">=9.23,<10" },
-    { name = "snakemake-executor-plugin-slurm" },
+    { name = "polars", specifier = "==1.42.1" },
+    { name = "pyarrow", specifier = "==25.0.0" },
+    { name = "pybigwig", specifier = "==0.3.25" },
+    { name = "snakemake", specifier = "==9.23.1" },
+    { name = "snakemake-executor-plugin-slurm", specifier = "==2.7.1" },
 ]
 
 [package.metadata.requires-dev]

@@ -1,5 +1,9 @@
 # Execution profiles
 
 Execution profiles keep scheduler-specific settings out of workflow rules.
-The Berkeley SCF profile will be implemented by its dedicated workflow issue;
-this foundation does not select partitions or submit cluster jobs.
+
+- `scf/`: Berkeley Statistics Slurm policy for artifact generation and
+  validation. See [`scf/README.md`](scf/README.md) before submitting jobs.
+
+Run publication without the SCF profile. The `publish` target is reserved for
+one intentional local process after artifact validation.

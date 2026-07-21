@@ -1,1 +1,19 @@
-{}
+scratch_root: scratch
+
+resource_policy:
+  heavy_initial:
+    threads: 4
+    mem_mb: 4096
+    runtime: 240
+    disk_mb: 1024
+  pilot_tuning:
+    runtime_multiplier: 2.0
+    runtime_min: 30
+    runtime_max: 360
+    memory_multiplier: 1.5
+    memory_min_mb: 4096
+
+scf_smoke:
+  chromosomes:
+    - chr1
+    - chr22

@@ -44,3 +44,11 @@ jobs:
           --snakefile workflow/Snakefile
           --cores 1
           --dry-run
+
+      - name: Dry-run SCF workflow profile
+        run: >-
+          uv run --locked snakemake
+          --snakefile workflow/Snakefile
+          --workflow-profile workflow/profiles/scf
+          --dry-run
+          artifacts publish scf_smoke

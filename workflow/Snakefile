@@ -1,12 +1,39 @@
 """GPN-Star genome-wide score release workflow."""
 
+from pathlib import Path
+import sys
+
 
 configfile: workflow.source_path("config/config.yaml")
+
+
+SCRATCH_ROOT = Path(config["scratch_root"])
+SCF_SMOKE_CHROMOSOMES = config["scf_smoke"]["chromosomes"]
+SCF_SMOKE_REPORT = str(SCRATCH_ROOT / "scf-smoke" / "{chrom}.json")
+PYTHON_EXECUTABLE = sys.executable
 
 
 include: "rules/common.smk"
 
 
-rule all:
+rule artifacts:
+    """Build and validate release artifacts without publishing them."""
     input:
         [],
+
+
+rule all:
+    input:
+        rules.artifacts.input,
+
+
+rule publish:
+    """Publish validated artifacts from one intentional local process."""
+    input:
+        rules.artifacts.input,
+
+
+rule scf_smoke:
+    """Run the two-chromosome SCF environment smoke target."""
+    input:
+        expand(SCF_SMOKE_REPORT, chrom=SCF_SMOKE_CHROMOSOMES),
