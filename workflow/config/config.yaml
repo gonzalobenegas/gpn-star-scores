@@ -52,3 +52,32 @@ inventory:
       mem_mb: null
       runtime: null
       tmp_disk_mb: null
+
+parquet_benchmark:
+  # Production benchmarking is gated on issue #8's complete valid-shard
+  # inventory manifest and an issue-specific epurdom pilot using the committed
+  # SCF profile. Release-level capacity blockers remain separately visible.
+  enabled: false
+  source_root: null
+  output_root: results/parquet-benchmark
+  cases: []
+  remote_uris: {}
+  inventory_manifest: null
+  staging_checks: null
+  sparse_key_count: 1024
+  hf_block_size: 4194304
+  # Populate these from the smallest representative epurdom pilot before
+  # enabling the workflow. Values are portable MB/minute requests.
+  resources:
+    rewrite:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    benchmark:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    report:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
