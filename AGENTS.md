@@ -58,11 +58,11 @@ body with:
   environment; rule-local Conda environments belong on `shell`, `script`, or
   wrapper rules that need external tools.
 - Keep Snakemake rules scheduler-neutral. Put SCF partition names and
-  scheduler-specific settings in the committed SCF profile.
-- Local execution must remain supported. Production cluster execution uses
-  CPU resources only: heavy parallel work belongs on `epurdom`, while short
-  finalization work may use `high`. Never request `yss`, `gpu`, or
-  `jsteinhardt`, and never declare a GPU resource.
+  scheduler-specific settings in the committed SCF profile. The issue that
+  implements that profile owns partition and executor policy.
+- Local execution must remain supported. Do not add GPU resources unless a
+  workflow requirement and its author-approved implementation issue call for
+  them.
 - Declare portable `threads`, `mem_mb`, `runtime`, and temporary-disk
   resources on applicable rules. Base production time and memory requests on
   recorded pilot measurements rather than guesses.
@@ -72,7 +72,7 @@ body with:
   atomically rename it into place. Interrupted or incomplete outputs must be
   safe to rerun.
 - Use shared project scratch for durable intermediates. Do not assume
-  node-local `/tmp` is available on `epurdom`.
+  node-local `/tmp` is available on cluster workers.
 - Separate artifact generation from publication. Parallel jobs may generate
   and validate artifacts; one intentional process performs remote uploads.
 
