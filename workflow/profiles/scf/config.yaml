@@ -5,6 +5,7 @@ rerun-incomplete: true
 retries: 2
 
 slurm-array-jobs: >-
+  validate_score_shard,
   validate_source_shard,
   rewrite_parquet_shard,
   build_chromosome_bigwig
@@ -19,6 +20,9 @@ slurm-jobname-prefix: gpn-star
 
 set-threads:
   scf_smoke_chromosome: 4
+  prepare_inventory_reference: 1
+  validate_score_shard: 1
+  inventory_manifest: 1
   inventory_source_shard: 4
   validate_source_shard: 4
   rewrite_parquet_shard: 4
@@ -32,6 +36,12 @@ set-threads:
 set-resources:
   scf_smoke_chromosome:
     slurm_partition: epurdom
+  prepare_inventory_reference:
+    slurm_partition: epurdom
+  validate_score_shard:
+    slurm_partition: epurdom
+  inventory_manifest:
+    slurm_partition: high
   inventory_source_shard:
     slurm_partition: epurdom
   validate_source_shard:
