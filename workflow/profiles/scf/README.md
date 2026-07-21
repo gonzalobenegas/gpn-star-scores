@@ -3,9 +3,10 @@
 This workflow profile uses the modern Snakemake Slurm executor and the locked
 project environment. It is intentionally limited to CPU partitions:
 
-- `epurdom` runs Polars scans and rewrites, shard validation, benchmarks,
-  per-chromosome BigWig generation, and the environment smoke test.
-- `high` runs short aggregation, reporting, and final concatenation jobs.
+- `epurdom` runs reference preparation, Polars scans and rewrites, shard
+  validation, benchmarks, per-chromosome BigWig generation, and the
+  environment smoke test.
+- `high` runs inventory aggregation, reporting, and final concatenation jobs.
 
 The profile never selects a GPU server or a lab partition outside this policy,
 and workflow rules never request GPU resources. `epurdom` is preemptible, so

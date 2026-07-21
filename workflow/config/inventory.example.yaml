@@ -1,0 +1,64 @@
+inventory:
+  enabled: true
+  source_root: /shared/project/staged/gpn-star_scores
+  # Must resolve outside source_root so generated files never enter staging.
+  output_root: /shared/project/scratch/gpn-star-scores/inventory
+  batch_size: 1048576
+
+  # Fill this with the author-approved current Parquet sum. The Box folder
+  # reports 333,761,247,733 bytes, while its 290 current Parquet objects summed
+  # to 333,761,235,219 bytes through the read-only Box API on 2026-07-20.
+  expected_shard_bytes: null
+
+  # These exact filenames and Ensembl releases come from the original model
+  # workflows. Record an author-approved SHA-256 for each immutable input. The
+  # files are read-only; prepared contigs go to output_root.
+  reference_fastas:
+    hg38:
+      path: /shared/project/references/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz
+      sha256: null
+    ce11:
+      path: /shared/project/references/Caenorhabditis_elegans.WBcel235.dna_sm.toplevel.fa.gz
+      sha256: null
+    dm6:
+      path: /shared/project/references/Drosophila_melanogaster.BDGP6.32.dna_sm.toplevel.fa.gz
+      sha256: null
+    gg6:
+      path: /shared/project/references/Gallus_gallus.GRCg6a.dna_sm.toplevel.fa.gz
+      sha256: null
+    mm39:
+      path: /shared/project/references/Mus_musculus.GRCm39.dna_sm.primary_assembly.fa.gz
+      sha256: null
+    tair10:
+      path: /shared/project/references/Arabidopsis_thaliana.TAIR10.dna_sm.toplevel.fa.gz
+      sha256: null
+
+  # Record private approval or quota evidence without putting credentials or
+  # sensitive account details in Git. planned_release_bytes must include at
+  # least all inventoried Parquets plus every generated release artifact.
+  hugging_face_capacity:
+    organization: songlab
+    confirmed: false
+    evidence: null
+    confirmed_by: null
+    confirmed_at: null
+    current_storage_bytes: null
+    planned_release_bytes: null
+    reserved_headroom_bytes: null
+    approved_capacity_bytes: null
+
+  # Replace every null with a positive integer measured by the representative
+  # SCF pilot before enabling production execution.
+  resources:
+    prepare_reference:
+      mem_mb: null
+      runtime: null
+      tmp_disk_mb: null
+    validate_shard:
+      mem_mb: null
+      runtime: null
+      tmp_disk_mb: null
+    manifest:
+      mem_mb: null
+      runtime: null
+      tmp_disk_mb: null

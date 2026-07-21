@@ -51,6 +51,7 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
 
     array_rules = {rule.strip() for rule in profile["slurm-array-jobs"].split(",")}
     assert {
+        "validate_score_shard",
         "validate_source_shard",
         "rewrite_parquet_shard",
         "build_chromosome_bigwig",
@@ -65,6 +66,9 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
         "benchmark_parquet_shard",
     }
     one_thread_rules = {
+        "prepare_inventory_reference",
+        "validate_score_shard",
+        "inventory_manifest",
         "build_chromosome_bigwig",
         "concatenate_bigwig",
         "aggregate_validation",
@@ -73,8 +77,12 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
     assert all(profile["set-threads"][rule] == 4 for rule in four_thread_rules)
     assert all(profile["set-threads"][rule] == 1 for rule in one_thread_rules)
 
+    resources = profile["set-resources"]
+    assert resources["prepare_inventory_reference"]["slurm_partition"] == "epurdom"
+    assert resources["validate_score_shard"]["slurm_partition"] == "epurdom"
+    assert resources["inventory_manifest"]["slurm_partition"] == "high"
     partitions = {
-        resources["slurm_partition"] for resources in profile["set-resources"].values()
+        rule_resources["slurm_partition"] for rule_resources in resources.values()
     }
     assert partitions == {"epurdom", "high"}
     assert not any(

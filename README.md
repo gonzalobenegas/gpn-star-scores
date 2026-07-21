@@ -51,3 +51,39 @@ its two-chromosome environment smoke test, before submitting production work.
 Python, Snakemake, Polars, PyArrow, pyBigWig, and development tools are locked
 in `uv.lock`. Rule-local Conda environments are reserved for non-Python tools
 such as UCSC utilities; they do not duplicate the Python project environment.
+
+## Staged score inventory
+
+Issue #8's production workflow is opt-in because its inputs are immutable,
+shared staged data rather than repository fixtures. Copy
+`workflow/config/inventory.example.yaml` outside Git, replace its generic
+paths, capacity evidence, and pilot-derived resource values, then run:
+
+```bash
+uv run --locked snakemake \
+  --snakefile workflow/Snakefile \
+  --configfile /path/to/inventory.yaml \
+  --cores 1 \
+  --dry-run
+```
+
+The workflow reads each expected Parquet shard and supplied Ensembl FASTA but
+never writes beside them. It rejects an output root that resolves inside the
+immutable staged source tree. Each FASTA must retain its original pinned
+filename and match an author-approved SHA-256. The workflow prepares
+memory-mappable reference contigs under the configured scratch output,
+validates each shard as a chromosome-level restart unit, and atomically
+promotes:
+
+- one JSON validation record per shard under `shards/`;
+- reference provenance and SHA-256 records under `references/`;
+- `release/manifest.json`, containing checksums, schemas, row counts, physical
+  Parquet layout, coordinate bounds, and validation results;
+- `release/summary.md`, the human-readable status and blocker report.
+
+The Box root currently reports 333,761,247,733 bytes. A read-only API inventory
+on 2026-07-20 found that the 290 current Parquet files themselves total
+333,761,235,219 bytes; the 12,514-byte difference is consistent with the README
+and its retained versions. Keep `expected_shard_bytes` unset until an author
+approves which release number is canonical, then record that decision in the
+production config and pull request evidence.
