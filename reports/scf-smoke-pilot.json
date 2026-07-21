@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-07-20T17:45:28-07:00",
+  "workflow_run_id": "gpn-star_2b278815-776f-417f-b2f4-15a255b72a62",
+  "profile": "workflow/profiles/scf/config.yaml",
+  "result": "completed",
+  "jobs": [
+    {
+      "chrom": "chr1",
+      "job_id": "3341917",
+      "node": "frodo",
+      "partition": "epurdom",
+      "state": "COMPLETED",
+      "elapsed_seconds": 6,
+      "total_cpu_seconds": 3.667,
+      "step_elapsed_seconds": 3,
+      "step_total_cpu_seconds": 2.224,
+      "step_max_rss_kib": 476,
+      "requested_mem_mb": 4096,
+      "allocated_cpus": 4,
+      "cpu_efficiency_percent": 18.533333333333335,
+      "memory_usage_percent": 0.01,
+      "exit_code": "0:0"
+    },
+    {
+      "chrom": "chr22",
+      "job_id": "3341918",
+      "node": "frodo",
+      "partition": "epurdom",
+      "state": "COMPLETED",
+      "elapsed_seconds": 6,
+      "total_cpu_seconds": 3.671,
+      "step_elapsed_seconds": 3,
+      "step_total_cpu_seconds": 2.235,
+      "step_max_rss_kib": 500,
+      "requested_mem_mb": 4096,
+      "allocated_cpus": 4,
+      "cpu_efficiency_percent": 18.625,
+      "memory_usage_percent": 0.01,
+      "exit_code": "0:0"
+    }
+  ],
+  "resource_decision": {
+    "smoke": {
+      "threads": 4,
+      "mem_mb": 4096,
+      "runtime_minutes": 30,
+      "disk_mb": 1024
+    },
+    "heavy_initial": {
+      "threads": 4,
+      "mem_mb": 4096,
+      "runtime_minutes": 240,
+      "disk_mb": 1024
+    },
+    "rationale": "The smoke rule remains at the 4 GB and 30 minute policy minima. Heavy transformation resources remain provisional until representative production-data pilots exist. The unusually low MaxRSS values are recorded exactly as reported by SCF sacct and were not used to reduce memory below the policy minimum."
+  },
+  "array_limitation": {
+    "diagnostic_job_id": "3341901",
+    "executor_version": "2.7.1",
+    "upstream_issue": "https://github.com/snakemake/snakemake-executor-plugin-slurm/issues/447",
+    "action": "The smoke jobs submit independently. Production array rule names remain explicit in the profile, but production array execution is blocked until a pinned upstream fix passes an SCF pilot."
+  }
+}
