@@ -1,0 +1,159 @@
+{
+  "benchmark_revision": "09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f",
+  "author_approvals": {
+    "approved_at": "2026-07-21",
+    "cross_case_aggregation": true,
+    "public_staging": true,
+    "representative_hg38_chromosome": "22"
+  },
+  "blockers": [
+    "Issue #8 has no complete 290-shard production inventory manifest to validate these source shards against."
+  ],
+  "candidates": {
+    "source": {
+      "exact_value_equality": true,
+      "hf_polars": true,
+      "local_full_scan_median_seconds": 0.1662946194410324,
+      "remote_full_scan_median_seconds": 2.8062162287533283,
+      "remote_interval_median_seconds": 0.3662457652390003,
+      "remote_interval_median_transferred_bytes": 10453073.0,
+      "total_size_bytes": 1033206375
+    },
+    "zstd-1048576": {
+      "exact_value_equality": true,
+      "hf_polars": true,
+      "local_full_scan_median_seconds": 0.2079443447291851,
+      "local_full_scan_ratio_to_source": 1.2504574437113496,
+      "remote_full_scan_median_seconds": 2.1986148469150066,
+      "remote_full_scan_ratio_to_source": 0.7834801981356045,
+      "remote_interval_median_seconds": 0.38196033239364624,
+      "remote_interval_median_transferred_bytes": 8054630.5,
+      "remote_interval_ratio_to_source": 1.0429071641125764,
+      "rewrite_peak_rss_bytes": 2655264768,
+      "size_ratio_to_source": 0.9397622551448156,
+      "total_size_bytes": 970968353,
+      "write_seconds": 40.027259700000286
+    },
+    "zstd-262144": {
+      "exact_value_equality": true,
+      "hf_polars": true,
+      "local_full_scan_median_seconds": 0.23205173388123512,
+      "local_full_scan_ratio_to_source": 1.395425388152862,
+      "remote_full_scan_median_seconds": 2.487277589738369,
+      "remote_full_scan_ratio_to_source": 0.8863456651176702,
+      "remote_interval_median_seconds": 0.38422829657793045,
+      "remote_interval_median_transferred_bytes": 5715825.0,
+      "remote_interval_ratio_to_source": 1.0490996293901045,
+      "rewrite_peak_rss_bytes": 2621661184,
+      "size_ratio_to_source": 0.9403610938811716,
+      "total_size_bytes": 971587077,
+      "write_seconds": 40.620784901082516
+    }
+  },
+  "cases": [
+    "gg6-chr32-entropy",
+    "gg6-chr32-llr",
+    "hg38-v100-chr22-entropy",
+    "hg38-v100-chr22-llr"
+  ],
+  "execution": {
+    "cpu_efficiency_fraction_range": {
+      "local": [
+        0.195,
+        0.623173
+      ],
+      "remote": [
+        0.102474,
+        0.215608
+      ]
+    },
+    "local_jobs": [
+      "3345354",
+      "3345355",
+      "3345357",
+      "3345358"
+    ],
+    "local_max_elapsed_seconds": 240,
+    "local_max_peak_rss_kib": 21478580,
+    "partition": "epurdom",
+    "remote_jobs": [
+      "3345430",
+      "3345431",
+      "3345432",
+      "3345433",
+      "3345434",
+      "3345435",
+      "3345436",
+      "3345437",
+      "3345438",
+      "3345439",
+      "3345440",
+      "3345441"
+    ],
+    "remote_max_elapsed_seconds": 535,
+    "remote_max_peak_rss_kib": 14934604,
+    "remote_peak_memory_fraction_of_request": 0.445088,
+    "remote_runs_serialized": true,
+    "threads": 4
+  },
+  "functional_checks": {
+    "dataset_viewer": {
+      "configurations_checked": 12,
+      "passed": true,
+      "preview_rows_per_configuration": 100
+    },
+    "direct_hf_polars": {
+      "case_candidate_checks": 12,
+      "passed": true
+    },
+    "position_statistics_usable": {
+      "case_candidate_checks": 12,
+      "passed": true
+    },
+    "rewrite_exact_value_equality": {
+      "case_candidate_checks": 8,
+      "passed": true
+    },
+    "source_inventory_manifest": {
+      "passed": false,
+      "reason": "complete issue #8 production manifest unavailable"
+    }
+  },
+  "generated_at": "2026-07-21T14:31:22Z",
+  "measurement_counts_per_candidate": {
+    "full_scan_repetitions_per_access": 20,
+    "remote_interval_repetitions": 120,
+    "warmups_per_query_per_case": 1
+  },
+  "provisional_outcome": {
+    "candidate": "source",
+    "rationale": "Both rewrites were slower for aggregate remote interval queries and exceeded the 10% local full-scan slowdown limit, so neither reaches the declared rewrite threshold. Source remains provisional until all blockers are cleared.",
+    "status": "selection_blocked"
+  },
+  "report_version": 1,
+  "resource_recommendation": {
+    "benchmark": {
+      "disk_mb": 1024,
+      "mem_mb": 32768,
+      "runtime_minutes": 30
+    },
+    "report": {
+      "disk_mb": 1024,
+      "mem_mb": 4096,
+      "runtime_minutes": 30
+    },
+    "rewrite": {
+      "disk_mb": 2048,
+      "mem_mb": 4096,
+      "runtime_minutes": 30
+    }
+  },
+  "staging": {
+    "artifact_bytes": 2975761805,
+    "artifact_count": 12,
+    "public": true,
+    "repository": "songlab/gpn-star-scores-layout-benchmark-staging",
+    "viewer_revision": "78efdb0f9a7b6e25f2568a879304836af75dd8b1"
+  },
+  "status": "pilot_complete_selection_blocked"
+}

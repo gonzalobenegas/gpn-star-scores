@@ -1,0 +1,69 @@
+parquet_benchmark:
+  enabled: true
+  # Immutable read-only stage validated by issue #8.
+  source_root: /shared/project/staged/gpn-star-scores
+  # Durable shared project scratch, never node-local /tmp.
+  output_root: /shared/project/scratch/gpn-star-scores/parquet-benchmark
+  # Machine-readable release manifest produced by issue #8.
+  inventory_manifest: /shared/project/scratch/gpn-star-scores/inventory/release/manifest.json
+
+  # Chromosome 22 was author-approved as the representative hg38-v100 input
+  # for issue #5 on 2026-07-21.
+  cases:
+    - id: gg6-chr32-entropy
+      score_type: entropy
+      relative_path: gg6/entropy/entropy_chr32.parquet
+    - id: gg6-chr32-llr
+      score_type: llr
+      relative_path: gg6/llr/llr_chr32.parquet
+    - id: hg38-v100-chr22-entropy
+      score_type: entropy
+      relative_path: gpn-star-hg38-v100-200m/entropy/entropy_chr22.parquet
+    - id: hg38-v100-chr22-llr
+      score_type: llr
+      relative_path: gpn-star-hg38-v100-200m/llr/llr_chr22.parquet
+
+  # Uploads to this dedicated staging repository are a separate intentional
+  # step. Keep it private unless an author explicitly approves public staging.
+  # Pin every URI to an immutable revision after staging; do not use main.
+  remote_uris:
+    gg6-chr32-entropy:
+      source: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/gg6-chr32-entropy/source.parquet
+      zstd-262144: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/gg6-chr32-entropy/zstd-262144.parquet
+      zstd-1048576: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/gg6-chr32-entropy/zstd-1048576.parquet
+    gg6-chr32-llr:
+      source: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/gg6-chr32-llr/source.parquet
+      zstd-262144: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/gg6-chr32-llr/zstd-262144.parquet
+      zstd-1048576: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/gg6-chr32-llr/zstd-1048576.parquet
+    hg38-v100-chr22-entropy:
+      source: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/hg38-v100-chr22-entropy/source.parquet
+      zstd-262144: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/hg38-v100-chr22-entropy/zstd-262144.parquet
+      zstd-1048576: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/hg38-v100-chr22-entropy/zstd-1048576.parquet
+    hg38-v100-chr22-llr:
+      source: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/hg38-v100-chr22-llr/source.parquet
+      zstd-262144: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/hg38-v100-chr22-llr/zstd-262144.parquet
+      zstd-1048576: hf://datasets/OWNER/PRIVATE-STAGING@REVISION/hg38-v100-chr22-llr/zstd-1048576.parquet
+
+  # Human-recorded evidence from the staging Dataset Viewer check. Source
+  # identity, ordering, position statistics, and hf:// behavior are derived
+  # from workflow outputs rather than accepted from this file. The staging
+  # record must list each candidate/case URI and SHA-256 for identity matching.
+  staging_checks: /shared/project/scratch/gpn-star-scores/parquet-benchmark/staging-checks.json
+  sparse_key_count: 1024
+  hf_block_size: 4194304
+
+  # Derived from the author-approved chr22 epurdom pilot: 1.5x measured peak
+  # RSS with the repository's 4 GB/30 minute floors.
+  resources:
+    rewrite:
+      mem_mb: 4096
+      runtime: 30
+      disk_mb: 2048
+    benchmark:
+      mem_mb: 32768
+      runtime: 30
+      disk_mb: 1024
+    report:
+      mem_mb: 4096
+      runtime: 30
+      disk_mb: 1024

@@ -1,0 +1,80 @@
+{
+  "source": {
+    "dataset_viewer": true,
+    "evidence": {
+      "artifacts": {
+        "gg6-chr32-entropy": {
+          "sha256": "1a1461fedf25f66977ecba01436036a21c7c29282ee330da5166af71f009fd6f",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/gg6-chr32-entropy/source.parquet"
+        },
+        "gg6-chr32-llr": {
+          "sha256": "e72f4e33807123715d18346b166f78bd8f8f9bc3c7da6ecc90cf09ee4db0ef8c",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/gg6-chr32-llr/source.parquet"
+        },
+        "hg38-v100-chr22-entropy": {
+          "sha256": "fbf212fbf6ddc12118c37ce15ce791841cba57980e591f0a9cd005a09034fbcd",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/hg38-v100-chr22-entropy/source.parquet"
+        },
+        "hg38-v100-chr22-llr": {
+          "sha256": "1a588f279b44c53007c315defe711297a9b47d896d8ce35e8bfff59801af66bb",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/hg38-v100-chr22-llr/source.parquet"
+        }
+      },
+      "dataset_viewer_checked_at": "2026-07-21T14:19:50Z",
+      "dataset_viewer_url": "https://huggingface.co/datasets/songlab/gpn-star-scores-layout-benchmark-staging",
+      "viewer_revision": "78efdb0f9a7b6e25f2568a879304836af75dd8b1"
+    }
+  },
+  "zstd-262144": {
+    "dataset_viewer": true,
+    "evidence": {
+      "artifacts": {
+        "gg6-chr32-entropy": {
+          "sha256": "8f7ff98704a63f342f1338bafebfd0b24753487ec011b063e44937ce2ae13de3",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/gg6-chr32-entropy/zstd-262144.parquet"
+        },
+        "gg6-chr32-llr": {
+          "sha256": "3862bc0749f8a34d12f10c1683ad79902ede99fe8859b6770fc1c67e16c794f2",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/gg6-chr32-llr/zstd-262144.parquet"
+        },
+        "hg38-v100-chr22-entropy": {
+          "sha256": "f7259d347b3c70fd81f7a896e85757baddc83ffde7fb62d21798df514d14de2b",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/hg38-v100-chr22-entropy/zstd-262144.parquet"
+        },
+        "hg38-v100-chr22-llr": {
+          "sha256": "3222e73ff11316dc020a6f501873084f20f0f8a32f9e0cbf056dcedcabb67d8d",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/hg38-v100-chr22-llr/zstd-262144.parquet"
+        }
+      },
+      "dataset_viewer_checked_at": "2026-07-21T14:19:50Z",
+      "dataset_viewer_url": "https://huggingface.co/datasets/songlab/gpn-star-scores-layout-benchmark-staging",
+      "viewer_revision": "78efdb0f9a7b6e25f2568a879304836af75dd8b1"
+    }
+  },
+  "zstd-1048576": {
+    "dataset_viewer": true,
+    "evidence": {
+      "artifacts": {
+        "gg6-chr32-entropy": {
+          "sha256": "0a87acf5dabbad3ca935b91a677380fc446bb0fa4176ce4db08838c6272d88fd",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/gg6-chr32-entropy/zstd-1048576.parquet"
+        },
+        "gg6-chr32-llr": {
+          "sha256": "d88adf72642bd8c927f5b0ad72cbba260ba532b4fc7f17306c9089270b3aaa40",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/gg6-chr32-llr/zstd-1048576.parquet"
+        },
+        "hg38-v100-chr22-entropy": {
+          "sha256": "b04826cf3dd116c62775c185dbe4a1d51101827594dd84d363c6ecdf93ac5e93",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/hg38-v100-chr22-entropy/zstd-1048576.parquet"
+        },
+        "hg38-v100-chr22-llr": {
+          "sha256": "b58541d01dbbb577016185b937ffde6e0e0890f6c731ed4bf80f1fc87e8ee185",
+          "uri": "hf://datasets/songlab/gpn-star-scores-layout-benchmark-staging@09b3f9a5d7ed9ae7acdd583f8e76d0c474a4642f/hg38-v100-chr22-llr/zstd-1048576.parquet"
+        }
+      },
+      "dataset_viewer_checked_at": "2026-07-21T14:19:50Z",
+      "dataset_viewer_url": "https://huggingface.co/datasets/songlab/gpn-star-scores-layout-benchmark-staging",
+      "viewer_revision": "78efdb0f9a7b6e25f2568a879304836af75dd8b1"
+    }
+  }
+}

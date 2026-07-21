@@ -37,6 +37,14 @@ release gates pass. Berkeley SCF users should follow the committed
 [`workflow/profiles/scf`](workflow/profiles/scf/README.md) profile, including
 its two-chromosome environment smoke test, before submitting production work.
 
+The issue #5 Parquet layout benchmark is opt-in, uses the committed SCF profile,
+and hash-validates its inputs against issue #8's inventory manifest before any
+rewrite or benchmark. Production remains gated on that manifest plus
+issue-specific pilot resources.
+Its candidates, measurement method, selection rule, staging boundary,
+and production configuration are documented in
+[`docs/parquet-layout-benchmark.md`](docs/parquet-layout-benchmark.md).
+
 ## Repository layout
 
 - `src/gpn_star_scores/`: importable Python transformation, validation,

@@ -15,12 +15,14 @@ PYTHON_EXECUTABLE = sys.executable
 
 include: "rules/common.smk"
 include: "rules/inventory.smk"
+include: "rules/parquet_benchmark.smk"
 
 
 rule artifacts:
     """Build and validate release artifacts without publishing them."""
     input:
         inventory_targets(),
+        parquet_benchmark_targets(),
 
 
 rule all:
