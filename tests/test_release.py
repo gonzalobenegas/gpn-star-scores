@@ -312,6 +312,23 @@ class _FakeResponse:
         return self.content
 
 
+def _fake_parquet_query_checks() -> list[dict[str, object]]:
+    return [
+        {
+            "range_reader_engine": "pyarrow",
+            "range_reader_transferred_bytes": 128,
+            "range_reader_rows": 1_000,
+            "polars_engine": "polars",
+            "polars_rows": 1,
+            "polars_projection_pushdown": True,
+            "polars_predicate_pushdown": True,
+            "polars_transfer_bytes_measured": False,
+            "polars_optimized_plan": "PROJECT 2/4 COLUMNS\nSELECTION: pos",
+        }
+        for _ in range(2)
+    ]
+
+
 def test_publication_uploads_data_then_tracks_then_card(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -544,7 +561,7 @@ def test_public_validation_checks_all_public_interfaces(
     monkeypatch.setattr(
         release_module,
         "_validate_hf_range_queries",
-        lambda *args, **kwargs: [{"direct_polars": True}] * 2,
+        lambda *args, **kwargs: _fake_parquet_query_checks(),
     )
     report = validate_public_release(
         metadata,
@@ -566,6 +583,12 @@ def test_public_validation_checks_all_public_interfaces(
     assert report["viewer_pending"] == []
     assert report["bigwig_range_count"] == 40
     assert len(report["parquet_query_checks"]) == 2
+    assert all(
+        check["range_reader_engine"] == "pyarrow"
+        and check["polars_engine"] == "polars"
+        and check["polars_transfer_bytes_measured"] is False
+        for check in report["parquet_query_checks"]
+    )
 
 
 def test_public_validation_reports_pending_viewer_without_blocking(
@@ -610,7 +633,7 @@ def test_public_validation_reports_pending_viewer_without_blocking(
     monkeypatch.setattr(
         release_module,
         "_validate_hf_range_queries",
-        lambda *args, **kwargs: [{"direct_polars": True}] * 2,
+        lambda *args, **kwargs: _fake_parquet_query_checks(),
     )
     report = validate_public_release(
         metadata,
@@ -691,6 +714,38 @@ def test_public_validation_rejects_unrelated_rendered_page(tmp_path: Path) -> No
             metadata,
             repository_id=REPOSITORY_ID,
             revision="f" * 40,
+            api=PublicApi(),
+            opener=opener,
+        )
+
+
+def test_public_validation_rejects_dataset_card_source_drift(tmp_path: Path) -> None:
+    _, metadata = _build_metadata(tmp_path)
+    manifest = json.loads((metadata / "manifest" / "release.json").read_text())
+    siblings = [
+        SimpleNamespace(
+            rfilename=record["path"],
+            size=record["size"],
+            lfs={"sha256": record["sha256"]},
+        )
+        for record in [*manifest["parquet"]["files"], *manifest["bigwig"]["files"]]
+    ]
+
+    class PublicApi:
+        def repo_info(self, *args: object, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(private=False, sha="1" * 40, siblings=siblings)
+
+    def opener(request: str | Request, **kwargs: object) -> _FakeResponse:
+        url = request.full_url if isinstance(request, Request) else request
+        if url.endswith("/README.md"):
+            return _FakeResponse(200, b"# GPN-Star genome-wide scores\nchanged")
+        raise AssertionError("rendered page must not be requested after source drift")
+
+    with pytest.raises(RuntimeError, match="card source is unavailable"):
+        validate_public_release(
+            metadata,
+            repository_id=REPOSITORY_ID,
+            revision="1" * 40,
             api=PublicApi(),
             opener=opener,
         )

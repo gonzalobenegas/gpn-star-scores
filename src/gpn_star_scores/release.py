@@ -849,7 +849,8 @@ def validate_public_release(
         raise ValueError(f"release repository must be {REPOSITORY_ID}")
     if viewer_attempts <= 0 or viewer_retry_seconds < 0 or hf_block_size <= 0:
         raise ValueError("invalid public-validation retry or block-size settings")
-    release_manifest = _read_json(Path(metadata_root) / "manifest" / "release.json")
+    metadata_root = Path(metadata_root)
+    release_manifest = _read_json(metadata_root / "manifest" / "release.json")
     public_api = api or HfApi(token=False)
 
     with _without_hugging_face_credentials():
@@ -901,7 +902,11 @@ def validate_public_release(
         )
         readme_status, _, readme_content = _read_url(readme_url, opener=opener)
         readme = readme_content.decode("utf-8")
-        if readme_status != 200 or "# GPN-Star genome-wide scores" not in readme:
+        if (
+            readme_status != 200
+            or readme_content != (metadata_root / "README.md").read_bytes()
+            or "# GPN-Star genome-wide scores" not in readme
+        ):
             raise RuntimeError("public dataset card source is unavailable")
         page_status, _, page_content = _read_url(
             f"{HUGGING_FACE_URL}/datasets/{repository_id}", opener=opener
