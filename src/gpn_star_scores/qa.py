@@ -897,11 +897,7 @@ def _validate_hub_evidence(
 
 
 def _positive_number(value: Any) -> bool:
-    return (
-        isinstance(value, int | float)
-        and not isinstance(value, bool)
-        and value > 0
-    )
+    return isinstance(value, int | float) and not isinstance(value, bool) and value > 0
 
 
 def _percentage(value: Any) -> bool:

@@ -108,6 +108,7 @@ if QA_ENABLED:
                 raise
 
     if not QA_REUSED_PUBLIC_HUB_REPORT:
+
         rule qa_public_hub:
             """Repeat anonymous hub, range, header, base, and zoom checks."""
             input:
