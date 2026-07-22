@@ -18,6 +18,7 @@ include: "rules/inventory.smk"
 include: "rules/parquet_benchmark.smk"
 include: "rules/bigwig.smk"
 include: "rules/release.smk"
+include: "rules/hub.smk"
 
 
 rule artifacts:
@@ -27,6 +28,7 @@ rule artifacts:
         parquet_benchmark_targets(),
         bigwig_targets(),
         release_preflight_targets(),
+        hub_targets(),
 
 
 rule all:
@@ -56,6 +58,56 @@ rule publish:
         ),
     run:
         run_release_publication(output[0], log[0])
+
+
+rule publish_hub:
+    """Publish the validated hub in one explicitly approved public commit."""
+    input:
+        hub_targets(),
+    output:
+        hub_publication_report(),
+    log:
+        str(HUB_OUTPUT_ROOT / "logs" / "publication.log"),
+    conda:
+        "envs/ucsc.yaml"
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards: (
+            hub_resource("publish", "mem_mb") if HUB_ENABLED else 1024
+        ),
+        runtime=lambda wildcards: (
+            hub_resource("publish", "runtime") if HUB_ENABLED else 30
+        ),
+        disk_mb=lambda wildcards: (
+            hub_resource("publish", "disk_mb") if HUB_ENABLED else 1024
+        ),
+    params:
+        metadata=str(HUB_METADATA_ROOT),
+        validation=str(HUB_VALIDATION_JSON),
+        expected_base=lambda wildcards: str(
+            HUB_CONFIG.get("expected_base_revision") or ""
+        ),
+        approval_approved=lambda wildcards: hub_approval_value("approved"),
+        approval_evidence=lambda wildcards: hub_approval_value("evidence_url"),
+        approved_by=lambda wildcards: hub_approval_value("approved_by"),
+        approved_at=lambda wildcards: hub_approval_value("approved_at"),
+        approval_base=lambda wildcards: hub_approval_value("expected_base_revision"),
+        udc_dir=lambda wildcards: str(HUB_CONFIG.get("udc_cache_root") or ""),
+    shell:
+        """
+        {PYTHON_EXECUTABLE:q} -m gpn_star_scores.hub publish \
+            --metadata-root {params.metadata:q} \
+            --validation-report {params.validation:q} \
+            --report {output:q} \
+            --expected-base-revision {params.expected_base:q} \
+            --approval-approved {params.approval_approved:q} \
+            --approval-evidence-url {params.approval_evidence:q} \
+            --approved-by {params.approved_by:q} \
+            --approved-at {params.approved_at:q} \
+            --approval-expected-base-revision {params.approval_base:q} \
+            --udc-dir {params.udc_dir:q} \
+            >{log:q} 2>&1
+        """
 
 
 rule scf_smoke:

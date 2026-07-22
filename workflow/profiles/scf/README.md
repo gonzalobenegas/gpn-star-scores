@@ -113,5 +113,7 @@ uv run --locked snakemake \
   publish
 ```
 
-The target does not perform an upload until a publication issue adds an
-author-approved upload rule.
+Issue #6 follows the same boundary: build and validate its hub locally, then
+run `publish_hub` without this profile only after its exact public-update
+approval record has been added to the external configuration. Neither
+publication target is a cluster job.

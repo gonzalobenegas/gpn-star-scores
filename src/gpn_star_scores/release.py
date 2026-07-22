@@ -42,6 +42,7 @@ PAPER_TITLE = (
 )
 VIEWER_URL = "https://datasets-server.huggingface.co/first-rows"
 HUGGING_FACE_URL = "https://huggingface.co"
+TRACK_HUB_URL = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}/resolve/main/ucsc/hub.txt"
 CAPACITY_BLOCKER = (
     "Hugging Face organization capacity and numeric release headroom are not confirmed"
 )
@@ -320,7 +321,11 @@ def _dataset_size_category(row_count: int) -> str:
     )
 
 
-def render_dataset_card(release_manifest: Mapping[str, Any]) -> str:
+def render_dataset_card(
+    release_manifest: Mapping[str, Any],
+    *,
+    hub_launch_links: Sequence[Mapping[str, str]] | None = None,
+) -> str:
     """Render the public dataset card and its explicit data-file globs."""
 
     configs = release_manifest["dataset_configs"]
@@ -358,6 +363,22 @@ def render_dataset_card(release_manifest: Mapping[str, Any]) -> str:
             f"{score_set.model_description} |"
         )
 
+    launch_section = ""
+    if hub_launch_links:
+        launch_rows = [
+            f"| `{link['score_set']}` | `{link['ucsc_assembly']}` | "
+            f"[Open in UCSC]({link['url']}) |"
+            for link in hub_launch_links
+        ]
+        launch_section = """
+
+### Model-specific launch links
+
+| Score set | UCSC assembly | Browser |
+| --- | --- | --- |
+{rows}
+""".format(rows=chr(10).join(launch_rows))
+
     body = f"""
 
 # GPN-Star genome-wide scores
@@ -375,8 +396,8 @@ did not justify a rewrite.
 
 Parquet chromosome names are the supplied assembly names and `pos` is a
 one-based position. BigWig files use zero-based, half-open coordinates and UCSC
-chromosome names. Browser assembly aliases are `hg38`, `ce11`, `dm6`,
-`galGal6` for Parquet assembly `gg6`, `araTha1` for `tair10`, and `mm39`.
+chromosome names. The hub's working browser database identifiers are listed
+below.
 
 ## Schemas and interpretation
 
@@ -401,6 +422,17 @@ Float64 softmax produces base weights, and each height is
 `p(base) * (2 - H)` for base-2 entropy `H`. Final visualization values are
 stored to three decimal places; Parquet remains the canonical full-precision
 product.
+
+## UCSC Genome Browser
+
+Use the single [GPN-Star multi-assembly track hub]({TRACK_HUB_URL}) to load the
+browser tracks. Each model group contains a conventional one-dimensional
+entropy signal and one stacked A/C/G/T sequence-logo view. The hub covers
+`hg38`, `ce11`, `dm6`, `galGal6`, the TAIR10 GenArk database
+`GCF_000001735.4`, and `mm39`; its BigWig URLs pin an immutable
+artifact revision even though this entry URL follows the current validated hub
+metadata.
+{launch_section}
 
 ## Repository layout
 

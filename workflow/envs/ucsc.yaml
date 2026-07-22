@@ -4,5 +4,6 @@ channels:
 dependencies:
   - ucsc-bigwigcat=482
   - ucsc-bigwiginfo=482
+  - ucsc-bigwigsummary=482
   - ucsc-hubcheck=482
   - ucsc-wigtobigwig=482

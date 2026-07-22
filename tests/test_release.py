@@ -21,6 +21,7 @@ from gpn_star_scores.release import (
     CAPACITY_BLOCKER,
     PUBLIC_STORAGE_POLICY,
     REPOSITORY_ID,
+    TRACK_HUB_URL,
     build_release_metadata,
     dataset_configs,
     publish_release,
@@ -179,6 +180,7 @@ def test_release_metadata_has_exact_configs_models_and_checksums(
     assert "pl.scan_parquet" in readme
     assert "variants.join" in readme
     assert "10.1101/2025.09.21.677619" in readme
+    assert TRACK_HUB_URL in readme
 
     representative = release_module._representative_parquet_records(manifest)
     assert [record["path"] for record in representative] == [
