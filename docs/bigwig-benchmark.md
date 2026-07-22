@@ -1,10 +1,10 @@
 # BigWig generation benchmark
 
-Status: implementation and local synthetic validation are complete. Issues #5,
-#8, and #9 are closed and their committed interfaces are consumed directly.
-The production source inventory, SCF benchmark, selected method, resource
-measurements, and 40-track validation report remain run-time evidence and must
-be generated outside Git from immutable staged data.
+Status: implementation, local synthetic validation, the SCF benchmark, and
+40-track production validation are complete. Issues #5, #8, and #9 are closed
+and their committed interfaces are consumed directly. The sanitized benchmark,
+resource, size, and validation evidence is committed under
+`reports/bigwig-benchmark-pilot/`; full-size artifacts remain outside Git.
 
 ## Candidates and score semantics
 
@@ -15,11 +15,15 @@ The benchmark applies the same transformation and validation to both methods:
    BigWigs with `bigWigCat`.
 2. Stream sorted Parquet batches directly into per-chromosome `pyBigWig`
    files. Contiguous positions use fixed-step entries and isolated positions
-   use variable-step entries. The same `bigWigCat` step creates final tracks.
+   use variable-step entries. A bounded-window `pyBigWig` repack creates the
+   final tracks because production-scale `bigWigCat` is not reliable for
+   direct-writer inputs.
 
-The WIG baseline writes nine significant decimal digits, enough for exact
-Float32 round-tripping. The upstream example's two-decimal formatting would
-not meet this release's Float32 comparison requirement.
+The benchmark retains exact Float32 values so method selection compares like
+with like. Final browser tracks are explicitly rounded to the configured three
+decimal places to preserve the staged source precision while reducing storage;
+Parquet remains the canonical
+full-precision score product. Values remain Float32 in BigWig.
 
 For each LLR position, the reference nucleotide receives logit zero and the
 three independently supplied `llr_calibrated` values become alternate logits.
@@ -79,7 +83,8 @@ that always include the first and last source positions. Validation requires:
 - exact source-to-UCSC coordinate conversion to zero-based, one-base-wide
   intervals;
 - absent values at a detected source gap;
-- exact Float32 agreement for sampled entropy and derived logo values;
+- exact Float32 agreement in benchmark and chromosome restart units;
+- agreement with configured three-decimal rounding in final browser tracks;
 - expected chromosome sizes and covered-base counts;
 - readable `pyBigWig` files and successful `bigWigInfo` output; and
 - at least one default BigWig zoom level before and after concatenation.
@@ -109,3 +114,9 @@ After recording pilot job IDs, wall time, peak RSS, transient scratch, and
 scheduler efficiency, set production resources from those measurements and
 target `artifacts`. The workflow only generates and validates local artifacts;
 it does not upload, publish, delete remote data, or create a release tag.
+
+The 2026-07-21 production run selected direct streaming, retained conservative
+24,576 MB chromosome-build and 49,152 MB finalizer memory requests, and
+validated all 40 three-decimal tracks. The final files total 190,384,237,902
+bytes (177.309 GiB). See `reports/bigwig-benchmark-pilot/README.md` for the
+human-readable record and `summary.json` for machine-readable evidence.

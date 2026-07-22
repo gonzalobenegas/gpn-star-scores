@@ -7,10 +7,15 @@ from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pyBigWig
 import pytest
 
 from gpn_star_scores.catalog import EXPECTED_SHARD_COUNT, expected_shards
-from gpn_star_scores.bigwig import ChromosomeSpec, validate_bigwig
+from gpn_star_scores.bigwig import (
+    ChromosomeSpec,
+    validate_bigwig,
+    write_entropy_bigwig,
+)
 from gpn_star_scores.inventory import sha256_file
 from gpn_star_scores.tracks import (
     assembly_chromosome_sizes_from_contract,
@@ -18,6 +23,7 @@ from gpn_star_scores.tracks import (
     chromosome_spec_from_contract,
     load_track_input_contract,
     render_track_benchmark,
+    stream_concatenate_bigwigs,
     ucsc_assembly_name,
     ucsc_chromosome_name,
     validate_score_type_tracks,
@@ -134,6 +140,71 @@ def test_direct_score_type_build_and_sample_validation(tmp_path: Path) -> None:
     assert validation["gap_checks"] == {"entropy": True}
 
 
+def test_stream_concatenate_bigwigs_rounds_values_and_preserves_gaps(
+    tmp_path: Path,
+) -> None:
+    chromosome_sizes = {"chr1": 3, "chr2": 2}
+    inputs = []
+    for source_chrom, ucsc_chrom, length, positions, values in (
+        ("1", "chr1", 3, [1, 3], [0.256, 1.754]),
+        ("2", "chr2", 2, [2], [0.504]),
+    ):
+        source = tmp_path / f"{ucsc_chrom}.parquet"
+        pq.write_table(
+            pa.table(
+                {
+                    "chrom": pa.array([source_chrom] * len(positions)),
+                    "pos": pa.array(positions, type=pa.int64()),
+                    "ref": pa.array(["A"] * len(positions)),
+                    "entropy_calibrated": pa.array(values, type=pa.float32()),
+                }
+            ),
+            source,
+        )
+        output = tmp_path / f"{ucsc_chrom}.bw"
+        write_entropy_bigwig(
+            [source],
+            output,
+            ChromosomeSpec(source_chrom, ucsc_chrom, length),
+            batch_size=1,
+            header_chromosome_sizes=chromosome_sizes,
+        )
+        inputs.append(output)
+
+    combined = tmp_path / "combined.bw"
+    stream_concatenate_bigwigs(
+        inputs,
+        combined,
+        chromosome_sizes,
+        list(chromosome_sizes),
+        batch_size=2,
+        value_decimals=2,
+    )
+
+    summary = validate_bigwig(
+        combined,
+        chromosome_sizes,
+        expected_bases_covered=3,
+    )
+    assert summary.zoom_levels >= 1
+    with pyBigWig.open(str(combined)) as bigwig:
+        assert bigwig.values("chr1", 0, 3) == pytest.approx(
+            [0.26, float("nan"), 1.75], nan_ok=True
+        )
+        assert bigwig.values("chr2", 0, 2) == pytest.approx(
+            [float("nan"), 0.5], nan_ok=True
+        )
+
+    with pytest.raises(ValueError, match="value_decimals"):
+        stream_concatenate_bigwigs(
+            inputs,
+            tmp_path / "invalid-precision.bw",
+            chromosome_sizes,
+            list(chromosome_sizes),
+            value_decimals=-1,
+        )
+
+
 def test_render_track_benchmark_aggregates_case_medians(tmp_path: Path) -> None:
     reports = []
     for case in ("case-a", "case-b"):
@@ -203,6 +274,7 @@ bigwig:
   selection_report: {track_selection}
   batch_size: 4
   sample_count: 2
+  value_decimals: 3
   benchmark:
     enabled: true
     output_root: {tmp_path / "benchmark"}

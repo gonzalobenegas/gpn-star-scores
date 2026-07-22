@@ -1,9 +1,8 @@
 """Streaming BigWig generation for GPN-Star score tracks.
 
 The public functions in this module intentionally operate on one chromosome at
-a time.  Chromosomes are the workflow's restart unit, and the resulting files
-can be combined with UCSC ``bigWigCat`` after every per-chromosome artifact has
-been validated.
+a time. Chromosomes are the workflow's restart unit, and the resulting files
+can be combined after every per-chromosome artifact has been validated.
 """
 
 from __future__ import annotations

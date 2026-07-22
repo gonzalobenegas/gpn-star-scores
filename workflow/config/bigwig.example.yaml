@@ -10,6 +10,8 @@ bigwig:
   selection_report: null
   batch_size: 262144
   sample_count: 1024
+  # BigWigs are visualization products; Parquet remains the canonical source.
+  value_decimals: 3
 
   benchmark:
     enabled: true

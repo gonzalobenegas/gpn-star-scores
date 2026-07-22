@@ -61,8 +61,15 @@ if BIGWIG_ENABLED:
         )
     BIGWIG_BATCH_SIZE = int(BIGWIG_CONFIG.get("batch_size", 262_144))
     BIGWIG_SAMPLE_COUNT = int(BIGWIG_CONFIG.get("sample_count", 1_024))
+    BIGWIG_VALUE_DECIMALS = BIGWIG_CONFIG.get("value_decimals")
     if BIGWIG_BATCH_SIZE <= 0 or BIGWIG_SAMPLE_COUNT <= 0:
         raise WorkflowError("bigwig batch_size and sample_count must be positive")
+    if (
+        not isinstance(BIGWIG_VALUE_DECIMALS, int)
+        or isinstance(BIGWIG_VALUE_DECIMALS, bool)
+        or not 0 <= BIGWIG_VALUE_DECIMALS <= 9
+    ):
+        raise WorkflowError("bigwig.value_decimals must be an integer from 0 through 9")
 
     def bigwig_resource(stage, name):
         value = BIGWIG_CONFIG.get("resources", {}).get(stage, {}).get(name)
@@ -124,12 +131,14 @@ if BIGWIG_ENABLED:
                 manifest=str(BIGWIG_INVENTORY_MANIFEST),
                 parquet_selection=str(BIGWIG_PARQUET_SELECTION),
             output:
-                artifacts=directory(
-                    str(
-                        BIGWIG_BENCHMARK_ROOT
-                        / "artifacts"
-                        / "{bigwig_case}"
-                        / "{bigwig_method}"
+                artifacts=temp(
+                    directory(
+                        str(
+                            BIGWIG_BENCHMARK_ROOT
+                            / "artifacts"
+                            / "{bigwig_case}"
+                            / "{bigwig_method}"
+                        )
                     )
                 ),
                 report=str(
@@ -270,6 +279,8 @@ if BIGWIG_ENABLED:
             for chrom in ASSEMBLIES[assembly].chromosomes
         ]
 
+    # Final concatenations consume the regenerable BigWigs. Keeping the compact
+    # report durable bounds storage without losing chromosome validation evidence.
     rule build_chromosome_bigwig:
         """Build and validate all five tracks for one chromosome restart unit."""
         input:
@@ -279,40 +290,50 @@ if BIGWIG_ENABLED:
             parquet_selection=str(BIGWIG_PARQUET_SELECTION),
             track_selection=str(BIGWIG_TRACK_SELECTION_PATH),
         output:
-            entropy=str(
-                BIGWIG_OUTPUT_ROOT
-                / "chromosomes"
-                / "{bigwig_score_set}"
-                / "{chrom}"
-                / "entropy.bw"
+            entropy=temp(
+                str(
+                    BIGWIG_OUTPUT_ROOT
+                    / "chromosomes"
+                    / "{bigwig_score_set}"
+                    / "{chrom}"
+                    / "entropy.bw"
+                )
             ),
-            A=str(
-                BIGWIG_OUTPUT_ROOT
-                / "chromosomes"
-                / "{bigwig_score_set}"
-                / "{chrom}"
-                / "A.bw"
+            A=temp(
+                str(
+                    BIGWIG_OUTPUT_ROOT
+                    / "chromosomes"
+                    / "{bigwig_score_set}"
+                    / "{chrom}"
+                    / "A.bw"
+                )
             ),
-            C=str(
-                BIGWIG_OUTPUT_ROOT
-                / "chromosomes"
-                / "{bigwig_score_set}"
-                / "{chrom}"
-                / "C.bw"
+            C=temp(
+                str(
+                    BIGWIG_OUTPUT_ROOT
+                    / "chromosomes"
+                    / "{bigwig_score_set}"
+                    / "{chrom}"
+                    / "C.bw"
+                )
             ),
-            G=str(
-                BIGWIG_OUTPUT_ROOT
-                / "chromosomes"
-                / "{bigwig_score_set}"
-                / "{chrom}"
-                / "G.bw"
+            G=temp(
+                str(
+                    BIGWIG_OUTPUT_ROOT
+                    / "chromosomes"
+                    / "{bigwig_score_set}"
+                    / "{chrom}"
+                    / "G.bw"
+                )
             ),
-            T=str(
-                BIGWIG_OUTPUT_ROOT
-                / "chromosomes"
-                / "{bigwig_score_set}"
-                / "{chrom}"
-                / "T.bw"
+            T=temp(
+                str(
+                    BIGWIG_OUTPUT_ROOT
+                    / "chromosomes"
+                    / "{bigwig_score_set}"
+                    / "{chrom}"
+                    / "T.bw"
+                )
             ),
             report=str(
                 BIGWIG_OUTPUT_ROOT
@@ -400,6 +421,7 @@ if BIGWIG_ENABLED:
                 --parquet-selection {input.parquet_selection:q} \
                 --score-set {wildcards.bigwig_score_set:q} \
                 --track {wildcards.bigwig_track:q} \
+                --value-decimals {BIGWIG_VALUE_DECIMALS} \
                 --output {output.bigwig:q} \
                 --report {output.report:q} \
                 --inputs {input.bigwigs:q} \

@@ -147,7 +147,7 @@ def chromosome_spec_from_contract(
 def assembly_chromosome_sizes_from_contract(
     contract: TrackInputContract, score_set: str
 ) -> dict[str, int]:
-    """Return the ordered full-assembly header required by ``bigWigCat``."""
+    """Return the ordered full-assembly header required by final BigWigs."""
 
     assembly = score_set_assembly(score_set)
     return {
@@ -692,6 +692,79 @@ def render_track_benchmark(
     _atomic_write_text(Path(output_markdown), _render_benchmark_markdown(payload))
 
 
+def stream_concatenate_bigwigs(
+    input_paths: Sequence[str | Path],
+    output_path: str | Path,
+    chromosome_sizes: Mapping[str, int],
+    chromosomes: Sequence[str],
+    *,
+    batch_size: int = 262_144,
+    value_decimals: int | None = None,
+) -> None:
+    """Repack disjoint chromosome BigWigs, optionally rounding track values."""
+
+    inputs = [Path(path) for path in input_paths]
+    expected_sizes = {
+        str(name): int(length) for name, length in chromosome_sizes.items()
+    }
+    if len(inputs) != len(chromosomes) or not inputs:
+        raise ValueError("one input BigWig is required per chromosome")
+    if list(chromosomes) != list(expected_sizes):
+        raise ValueError("chromosomes must match the ordered BigWig header")
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    _validate_value_decimals(value_decimals)
+
+    output = Path(output_path)
+    writer = pyBigWig.open(str(output), "w")
+    if writer is None:
+        raise OSError(f"could not open BigWig for writing: {output}")
+    try:
+        writer.addHeader(list(expected_sizes.items()))
+        for input_path, chromosome in zip(inputs, chromosomes, strict=True):
+            source = pyBigWig.open(str(input_path))
+            if source is None or not source.isBigWig():
+                raise ValueError(f"not a readable input BigWig: {input_path}")
+            try:
+                observed_sizes = {
+                    str(name): int(length) for name, length in source.chroms().items()
+                }
+                if observed_sizes != expected_sizes:
+                    raise ValueError(
+                        f"input BigWig header differs for {input_path}: "
+                        f"{observed_sizes!r} != {expected_sizes!r}"
+                    )
+                chromosome_length = expected_sizes[chromosome]
+                for batch_start in range(0, chromosome_length, batch_size):
+                    batch_end = min(batch_start + batch_size, chromosome_length)
+                    values = np.asarray(
+                        source.values(chromosome, batch_start, batch_end, numpy=True),
+                        dtype=np.float32,
+                    )
+                    values = _round_track_values(values, value_decimals)
+                    finite = np.isfinite(values)
+                    padded = np.empty(len(finite) + 2, dtype=np.int8)
+                    padded[0] = 0
+                    padded[-1] = 0
+                    padded[1:-1] = finite
+                    boundaries = np.flatnonzero(np.diff(padded))
+                    for begin, end in boundaries.reshape(-1, 2):
+                        writer.addEntries(
+                            chromosome,
+                            batch_start + int(begin),
+                            values=values[begin:end].tolist(),
+                            span=1,
+                            step=1,
+                        )
+            finally:
+                source.close()
+        writer.close()
+        writer = None
+    finally:
+        if writer is not None:
+            writer.close()
+
+
 def concatenate_track_bigwig(
     input_paths: Sequence[str | Path],
     chromosome_report_paths: Sequence[str | Path],
@@ -702,6 +775,7 @@ def concatenate_track_bigwig(
     *,
     score_set: str,
     track: str,
+    value_decimals: int | None = None,
     bigwig_cat: str = "bigWigCat",
     bigwig_info: str = "bigWigInfo",
 ) -> None:
@@ -709,6 +783,7 @@ def concatenate_track_bigwig(
 
     if track not in TRACKS:
         raise ValueError(f"unknown track: {track!r}")
+    _validate_value_decimals(value_decimals)
     contract = load_track_input_contract(
         inventory_manifest_path, parquet_selection_path
     )
@@ -728,18 +803,40 @@ def concatenate_track_bigwig(
         expected_bases += _position_count(
             _record_for(contract, score_set, score_type, chrom)
         )
+    reports = [_load_json(path) for path in chromosome_reports]
+    methods = {report.get("method") for report in reports}
+    if len(methods) != 1 or not methods.issubset(METHODS):
+        raise ValueError("chromosome reports must use one valid BigWig method")
+    method = str(next(iter(methods)))
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary_dir = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     temporary = temporary_dir / output.name
     try:
-        subprocess.run(
-            [bigwig_cat, str(temporary), *map(str, inputs)],
-            check=True,
-            text=True,
-            capture_output=True,
-        )
+        if method == "direct" or value_decimals is not None:
+            stream_concatenate_bigwigs(
+                inputs,
+                temporary,
+                expected_sizes,
+                [ucsc_chromosome_name(chrom) for chrom in chromosomes],
+                value_decimals=value_decimals,
+            )
+            concatenation_method = "pyBigWig-stream-copy"
+        else:
+            try:
+                subprocess.run(
+                    [bigwig_cat, str(temporary), *map(str, inputs)],
+                    check=True,
+                    text=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError as error:
+                raise RuntimeError(
+                    f"bigWigCat failed with exit {error.returncode}: "
+                    f"{error.stderr.strip()}"
+                ) from error
+            concatenation_method = "bigWigCat"
         summary = validate_bigwig(
             temporary,
             expected_sizes,
@@ -757,10 +854,7 @@ def concatenate_track_bigwig(
 
         concatenated_checks = []
         with pyBigWig.open(str(temporary)) as bigwig:
-            for chrom, report_path_item in zip(
-                chromosomes, chromosome_reports, strict=True
-            ):
-                report = _load_json(report_path_item)
+            for chrom, report in zip(chromosomes, reports, strict=True):
                 chromosome_record = report.get("chromosome")
                 if (
                     report.get("report_version") != 1
@@ -785,7 +879,10 @@ def concatenate_track_bigwig(
                 observed = np.float32(
                     bigwig.values(ucsc_chrom, position - 1, position)[0]
                 )
-                expected = np.float32(sample["expected_float32"])
+                expected = _round_track_values(
+                    np.asarray([sample["expected_float32"]], dtype=np.float32),
+                    value_decimals,
+                )[0]
                 if not _float32_exact(expected, observed):
                     raise ValueError(
                         f"concatenated {track} differs at {ucsc_chrom}:{position}"
@@ -809,6 +906,9 @@ def concatenate_track_bigwig(
                 "assembly": assembly,
                 "ucsc_assembly": ucsc_assembly_name(assembly),
                 "track": track,
+                "value_decimals": value_decimals,
+                "chromosome_method": method,
+                "concatenation_method": concatenation_method,
                 "input_count": len(inputs),
                 "inventory_manifest_sha256": contract.manifest_sha256,
                 "summary": asdict(summary),
@@ -840,6 +940,11 @@ def aggregate_track_validation(
     ]
     if invalid:
         raise ValueError(f"invalid final BigWig reports: {invalid!r}")
+    value_decimals = {report.get("value_decimals") for report in reports}
+    if len(value_decimals) != 1:
+        raise ValueError("final BigWig reports use inconsistent value precision")
+    final_value_decimals = next(iter(value_decimals))
+    _validate_value_decimals(final_value_decimals)
     selection = _load_json(benchmark_selection_path)
     if (
         selection.get("status") != "selected"
@@ -855,6 +960,7 @@ def aggregate_track_validation(
         "valid": True,
         "track_count": len(reports),
         "selected_method": selection["selected_method"],
+        "value_decimals": final_value_decimals,
         "inventory_manifest_sha256": next(iter(manifest_hashes)),
         "tracks": sorted(
             [
@@ -871,6 +977,11 @@ def aggregate_track_validation(
             key=lambda item: (item["score_set"], item["track"]),
         ),
     }
+    precision_description = (
+        "exact Float32"
+        if final_value_decimals is None
+        else f"{final_value_decimals}-decimal visualization"
+    )
     atomic_write_json(Path(output_json), payload)
     lines = [
         "# BigWig validation",
@@ -883,7 +994,8 @@ def aggregate_track_validation(
         "",
         "Every final BigWig opened through pyBigWig and bigWigInfo, reported zoom "
         "levels, matched expected chromosome sizes and covered-base counts, and "
-        "preserved sampled source-derived Float32 values after concatenation.",
+        "matched sampled source-derived values after applying the declared "
+        f"{precision_description} precision.",
         "",
     ]
     _atomic_write_text(Path(output_markdown), "\n".join(lines))
@@ -1098,6 +1210,23 @@ def _float32_exact(left: np.float32, right: np.float32) -> bool:
     )
 
 
+def _validate_value_decimals(value_decimals: int | None) -> None:
+    if value_decimals is None:
+        return
+    if (
+        not isinstance(value_decimals, int)
+        or isinstance(value_decimals, bool)
+        or not 0 <= value_decimals <= 9
+    ):
+        raise ValueError("value_decimals must be null or an integer from 0 through 9")
+
+
+def _round_track_values(values: np.ndarray, value_decimals: int | None) -> np.ndarray:
+    if value_decimals is None:
+        return values
+    return np.round(values, decimals=value_decimals).astype(np.float32, copy=False)
+
+
 def _is_sha256(value: Any) -> bool:
     return (
         isinstance(value, str)
@@ -1296,6 +1425,7 @@ def _build_parser() -> argparse.ArgumentParser:
     concatenate.add_argument("--track", choices=TRACKS, required=True)
     concatenate.add_argument("--output", type=Path, required=True)
     concatenate.add_argument("--report", type=Path, required=True)
+    concatenate.add_argument("--value-decimals", type=int)
     concatenate.add_argument("--inputs", nargs="+", type=Path, required=True)
     concatenate.add_argument(
         "--chromosome-reports", nargs="+", type=Path, required=True
@@ -1362,6 +1492,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.parquet_selection,
             score_set=args.score_set,
             track=args.track,
+            value_decimals=args.value_decimals,
         )
     else:  # pragma: no cover - argparse enforces the choices
         raise AssertionError(args.command)
