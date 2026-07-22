@@ -432,9 +432,16 @@ def build_track_hub(
 
     if not _EMAIL_PATTERN.fullmatch(contact_email):
         raise ValueError("contact_email must be a valid single email address")
-    release_manifest = _read_json(release_manifest_path)
-    records = _validated_bigwig_records(release_manifest, artifact_revision)
+    release_manifest_file = Path(release_manifest_path).resolve()
     output = Path(output_dir)
+    resolved_output = output.resolve()
+    if (
+        release_manifest_file == resolved_output
+        or resolved_output in release_manifest_file.parents
+    ):
+        raise ValueError("output_dir must not contain the source release manifest")
+    release_manifest = _read_json(release_manifest_file)
+    records = _validated_bigwig_records(release_manifest, artifact_revision)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     try:
@@ -1039,6 +1046,43 @@ def _publication_files(metadata_root: Path) -> list[Path]:
     return files
 
 
+def _validated_pending_publication(
+    metadata_root: Path,
+    report_path: str | Path,
+    *,
+    expected_base_revision: str,
+    final_revision: str,
+    publication_approval: Mapping[str, Any],
+    repository_id: str,
+) -> dict[str, Any]:
+    pending = _read_json(report_path)
+    expected_files = [
+        path.relative_to(metadata_root).as_posix()
+        for path in _publication_files(metadata_root)
+    ]
+    expected = {
+        "report_version": 1,
+        "valid": False,
+        "repository": repository_id,
+        "public": True,
+        "base_revision": expected_base_revision,
+        "final_revision": final_revision,
+        "single_commit": True,
+        "single_process": True,
+        "slurm_job_id": None,
+        "publication_approval": dict(publication_approval),
+        "published_files": expected_files,
+    }
+    if pending.get("status") not in {
+        "published_pending_validation",
+        "published_validation_failed",
+    } or any(pending.get(field) != value for field, value in expected.items()):
+        raise ValueError(
+            "validate-existing requires the matching publisher-created pending report"
+        )
+    return pending
+
+
 def validate_public_track_hub(
     metadata_root: str | Path,
     *,
@@ -1134,7 +1178,15 @@ def validate_existing_track_hub_publication(
         )
     metadata = Path(metadata_root)
     _validate_local_metadata(metadata)
-    files = _publication_files(metadata)
+    pending = _validated_pending_publication(
+        metadata,
+        report_path,
+        expected_base_revision=expected_base_revision,
+        final_revision=final_revision,
+        publication_approval=approval,
+        repository_id=repository_id,
+    )
+    recovered_from_status = pending["status"]
     public_validation = validator(
         metadata,
         revision=final_revision,
@@ -1143,26 +1195,17 @@ def validate_existing_track_hub_publication(
     )
     if public_validation.get("valid") is not True:
         raise RuntimeError("existing public hub validation returned an invalid result")
-    atomic_write_json(
-        Path(report_path),
+    pending.update(
         {
-            "report_version": 1,
-            "valid": public_validation.get("valid") is True,
+            "valid": True,
             "status": "validated_existing_publication",
-            "repository": repository_id,
-            "public": True,
-            "base_revision": expected_base_revision,
-            "final_revision": final_revision,
-            "single_commit": True,
-            "single_process": True,
-            "slurm_job_id": None,
-            "publication_approval": approval,
-            "published_files": [
-                path.relative_to(metadata).as_posix() for path in files
-            ],
+            "recovered_from_status": recovered_from_status,
             "public_validation": public_validation,
-        },
+        }
     )
+    pending.pop("validation_error_type", None)
+    pending.pop("validation_error", None)
+    atomic_write_json(Path(report_path), pending)
 
 
 def publish_track_hub(
@@ -1173,6 +1216,7 @@ def publish_track_hub(
     expected_base_revision: str,
     publication_approval: Mapping[str, Any] | None,
     udc_dir: str | Path,
+    success_marker_path: str | Path | None = None,
     repository_id: str = REPOSITORY_ID,
     api: Any | None = None,
     validator: Callable[..., dict[str, Any]] = validate_public_track_hub,
@@ -1187,6 +1231,13 @@ def publish_track_hub(
         raise ValueError(f"hub repository must be {REPOSITORY_ID}")
     if os.environ.get("SLURM_JOB_ID"):
         raise RuntimeError("hub publication must run from one non-Slurm process")
+    success_marker = (
+        Path(success_marker_path) if success_marker_path is not None else None
+    )
+    if success_marker is not None:
+        if success_marker.resolve() == Path(report_path).resolve():
+            raise ValueError("success marker and publication report must differ")
+        success_marker.unlink(missing_ok=True)
     metadata = Path(metadata_root)
     manifest = _validate_local_metadata(metadata)
     validation = _read_json(validation_report_path)
@@ -1268,6 +1319,8 @@ def publish_track_hub(
         }
     )
     atomic_write_json(Path(report_path), publication)
+    if success_marker is not None:
+        _atomic_write_text(success_marker, f"{final_revision}\n")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -1290,6 +1343,7 @@ def _parser() -> argparse.ArgumentParser:
     publish.add_argument("--metadata-root", type=Path, required=True)
     publish.add_argument("--validation-report", type=Path, required=True)
     publish.add_argument("--report", type=Path, required=True)
+    publish.add_argument("--success-marker", type=Path)
     publish.add_argument("--expected-base-revision", required=True)
     publish.add_argument("--approval-approved", required=True)
     publish.add_argument("--approval-evidence-url", required=True)
@@ -1348,6 +1402,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             expected_base_revision=args.expected_base_revision,
             publication_approval=_approval_from_args(args),
             udc_dir=args.udc_dir,
+            success_marker_path=args.success_marker,
         )
         return
     if args.command == "validate-existing":

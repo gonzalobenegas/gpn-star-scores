@@ -176,7 +176,11 @@ pinned UCSC-tool environment so anonymous post-validation has `hubCheck`,
 `bigWigInfo`, and `bigWigSummary` available.
 
 If the commit succeeds but post-validation is interrupted, the publication
-report preserves the new immutable revision and the command fails loudly.
-Resume without creating another commit with the module's `validate-existing`
-subcommand, using the same approval record, base revision, metadata tree, and
-the preserved final revision.
+report preserves the new immutable revision and the command fails loudly. The
+workflow declares only `publication.complete` as its success output, so
+Snakemake can remove the failed-job marker without deleting the durable
+recovery report. Resume without creating another commit with the module's
+`validate-existing` subcommand, using the same approval record, base revision,
+metadata tree, and preserved report and final revision. Recovery rejects a
+missing or mismatched publisher-created report instead of asserting an
+unverified base-to-final single-commit relationship.

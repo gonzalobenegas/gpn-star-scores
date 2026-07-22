@@ -65,7 +65,7 @@ rule publish_hub:
     input:
         hub_targets(),
     output:
-        hub_publication_report(),
+        success=hub_publication_success_marker(),
     log:
         str(HUB_OUTPUT_ROOT / "logs" / "publication.log"),
     conda:
@@ -84,6 +84,7 @@ rule publish_hub:
     params:
         metadata=str(HUB_METADATA_ROOT),
         validation=str(HUB_VALIDATION_JSON),
+        report=hub_publication_report(),
         expected_base=lambda wildcards: str(
             HUB_CONFIG.get("expected_base_revision") or ""
         ),
@@ -98,7 +99,8 @@ rule publish_hub:
         {PYTHON_EXECUTABLE:q} -m gpn_star_scores.hub publish \
             --metadata-root {params.metadata:q} \
             --validation-report {params.validation:q} \
-            --report {output:q} \
+            --report {params.report:q} \
+            --success-marker {output.success:q} \
             --expected-base-revision {params.expected_base:q} \
             --approval-approved {params.approval_approved:q} \
             --approval-evidence-url {params.approval_evidence:q} \

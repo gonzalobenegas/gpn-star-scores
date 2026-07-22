@@ -13,6 +13,7 @@ HUB_METADATA_ROOT = HUB_OUTPUT_ROOT / "metadata"
 HUB_VALIDATION_JSON = HUB_OUTPUT_ROOT / "validation.json"
 HUB_VALIDATION_MARKDOWN = HUB_OUTPUT_ROOT / "validation.md"
 HUB_PUBLICATION_REPORT = HUB_OUTPUT_ROOT / "publication.json"
+HUB_PUBLICATION_SUCCESS = HUB_OUTPUT_ROOT / "publication.complete"
 
 
 def hub_targets():
@@ -24,9 +25,15 @@ def hub_targets():
 
 
 def hub_publication_report():
-    """Return the report from the explicit public hub update."""
+    """Return the durable report from the explicit public hub update."""
 
     return str(HUB_PUBLICATION_REPORT)
+
+
+def hub_publication_success_marker():
+    """Return the success-only target for the explicit public hub update."""
+
+    return str(HUB_PUBLICATION_SUCCESS)
 
 
 def hub_approval_value(name):

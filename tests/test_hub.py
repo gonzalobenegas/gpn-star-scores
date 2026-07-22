@@ -100,6 +100,47 @@ def _write_validation_report(metadata: Path, path: Path) -> None:
     )
 
 
+def _publication_approval() -> dict[str, object]:
+    return {
+        "approved": True,
+        "evidence_url": HUB_APPROVAL_ISSUE,
+        "approved_by": "author",
+        "approved_at": "2026-07-22",
+        "expected_base_revision": ARTIFACT_REVISION,
+    }
+
+
+def _write_pending_publication_report(metadata: Path, path: Path) -> None:
+    publication_files = [
+        metadata / "README.md",
+        metadata / "manifest" / "ucsc-hub.json",
+        *sorted(item for item in (metadata / "ucsc").rglob("*") if item.is_file()),
+    ]
+    path.write_text(
+        json.dumps(
+            {
+                "report_version": 1,
+                "valid": False,
+                "status": "published_validation_failed",
+                "repository": REPOSITORY_ID,
+                "public": True,
+                "base_revision": ARTIFACT_REVISION,
+                "final_revision": "b" * 40,
+                "single_commit": True,
+                "single_process": True,
+                "slurm_job_id": None,
+                "publication_approval": _publication_approval(),
+                "published_files": [
+                    item.relative_to(metadata).as_posix() for item in publication_files
+                ],
+                "validation_error_type": "FileNotFoundError",
+                "validation_error": "hubCheck",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> None:
     metadata = _build_metadata(tmp_path)
 
@@ -172,6 +213,26 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         for score_set in SCORE_SETS
         for track in TRACKS
     }
+
+
+def test_build_rejects_output_that_contains_source_release_manifest(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "release" / "metadata"
+    release_manifest = output / "manifest" / "release.json"
+    release_manifest.parent.mkdir(parents=True)
+    original = json.dumps(_release_manifest())
+    release_manifest.write_text(original, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="must not contain"):
+        build_track_hub(
+            release_manifest,
+            output,
+            artifact_revision=ARTIFACT_REVISION,
+            contact_email="maintainer@example.org",
+        )
+
+    assert release_manifest.read_text(encoding="utf-8") == original
 
 
 def test_track_descriptions_preserve_score_and_coordinate_semantics(
@@ -383,19 +444,15 @@ def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
         return {"valid": True, "credentials_sent": False}
 
     report = tmp_path / "publication.json"
+    success_marker = tmp_path / "publication.complete"
     publish_track_hub(
         metadata,
         validation,
         report,
         expected_base_revision=ARTIFACT_REVISION,
-        publication_approval={
-            "approved": True,
-            "evidence_url": HUB_APPROVAL_ISSUE,
-            "approved_by": "author",
-            "approved_at": "2026-07-22",
-            "expected_base_revision": ARTIFACT_REVISION,
-        },
+        publication_approval=_publication_approval(),
         udc_dir=tmp_path / "udc",
+        success_marker_path=success_marker,
         api=api,
         validator=validator,
     )
@@ -415,6 +472,7 @@ def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
     assert publication["base_revision"] == ARTIFACT_REVISION
     assert publication["final_revision"] == "b" * 40
     assert publication["single_commit"] is True
+    assert success_marker.read_text() == f"{'b' * 40}\n"
 
 
 def test_publication_failure_preserves_created_revision_for_recovery(
@@ -428,20 +486,17 @@ def test_publication_failure_preserves_created_revision_for_recovery(
         raise FileNotFoundError("hubCheck")
 
     report = tmp_path / "publication.json"
+    success_marker = tmp_path / "publication.complete"
+    success_marker.write_text("stale\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match=f"hub revision {'b' * 40}"):
         publish_track_hub(
             metadata,
             validation,
             report,
             expected_base_revision=ARTIFACT_REVISION,
-            publication_approval={
-                "approved": True,
-                "evidence_url": HUB_APPROVAL_ISSUE,
-                "approved_by": "author",
-                "approved_at": "2026-07-22",
-                "expected_base_revision": ARTIFACT_REVISION,
-            },
+            publication_approval=_publication_approval(),
             udc_dir=tmp_path / "udc",
+            success_marker_path=success_marker,
             api=_FakeApi(),
             validator=validator,
         )
@@ -451,6 +506,7 @@ def test_publication_failure_preserves_created_revision_for_recovery(
     assert publication["status"] == "published_validation_failed"
     assert publication["final_revision"] == "b" * 40
     assert publication["validation_error_type"] == "FileNotFoundError"
+    assert not success_marker.exists()
 
 
 def test_publication_rejects_validator_invalid_result(tmp_path: Path) -> None:
@@ -468,13 +524,7 @@ def test_publication_rejects_validator_invalid_result(tmp_path: Path) -> None:
             validation,
             report,
             expected_base_revision=ARTIFACT_REVISION,
-            publication_approval={
-                "approved": True,
-                "evidence_url": HUB_APPROVAL_ISSUE,
-                "approved_by": "author",
-                "approved_at": "2026-07-22",
-                "expected_base_revision": ARTIFACT_REVISION,
-            },
+            publication_approval=_publication_approval(),
             udc_dir=tmp_path / "udc",
             api=_FakeApi(),
             validator=validator,
@@ -497,18 +547,13 @@ def test_existing_publication_validation_recovers_without_a_commit(
         return {"valid": True, "credentials_sent": False}
 
     report = tmp_path / "publication.json"
+    _write_pending_publication_report(metadata, report)
     validate_existing_track_hub_publication(
         metadata,
         report,
         expected_base_revision=ARTIFACT_REVISION,
         final_revision="b" * 40,
-        publication_approval={
-            "approved": True,
-            "evidence_url": HUB_APPROVAL_ISSUE,
-            "approved_by": "author",
-            "approved_at": "2026-07-22",
-            "expected_base_revision": ARTIFACT_REVISION,
-        },
+        publication_approval=_publication_approval(),
         udc_dir=tmp_path / "udc",
         validator=validator,
     )
@@ -519,12 +564,16 @@ def test_existing_publication_validation_recovers_without_a_commit(
     assert publication["status"] == "validated_existing_publication"
     assert publication["final_revision"] == "b" * 40
     assert len(publication["published_files"]) == 35
+    assert publication["recovered_from_status"] == "published_validation_failed"
+    assert "validation_error" not in publication
 
 
 def test_existing_publication_rejects_validator_invalid_result(
     tmp_path: Path,
 ) -> None:
     metadata = _build_metadata(tmp_path)
+    report = tmp_path / "publication.json"
+    _write_pending_publication_report(metadata, report)
 
     def validator(*args: object, **kwargs: object) -> dict[str, object]:
         return {"valid": False, "credentials_sent": False}
@@ -532,18 +581,34 @@ def test_existing_publication_rejects_validator_invalid_result(
     with pytest.raises(RuntimeError, match="returned an invalid result"):
         validate_existing_track_hub_publication(
             metadata,
-            tmp_path / "publication.json",
+            report,
             expected_base_revision=ARTIFACT_REVISION,
             final_revision="b" * 40,
-            publication_approval={
-                "approved": True,
-                "evidence_url": HUB_APPROVAL_ISSUE,
-                "approved_by": "author",
-                "approved_at": "2026-07-22",
-                "expected_base_revision": ARTIFACT_REVISION,
-            },
+            publication_approval=_publication_approval(),
             udc_dir=tmp_path / "udc",
             validator=validator,
+        )
+
+
+def test_existing_publication_requires_matching_publisher_report(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path)
+    report = tmp_path / "publication.json"
+    _write_pending_publication_report(metadata, report)
+    pending = json.loads(report.read_text())
+    pending["base_revision"] = "c" * 40
+    report.write_text(json.dumps(pending), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="publisher-created pending report"):
+        validate_existing_track_hub_publication(
+            metadata,
+            report,
+            expected_base_revision=ARTIFACT_REVISION,
+            final_revision="b" * 40,
+            publication_approval=_publication_approval(),
+            udc_dir=tmp_path / "udc",
+            validator=lambda *args, **kwargs: {"valid": True},
         )
 
 
@@ -634,3 +699,4 @@ hub:
     assert "build_track_hub_metadata" in result.stdout
     assert "validate_track_hub" in result.stdout
     assert "publish_hub" in result.stdout
+    assert "publication.complete" in result.stdout
