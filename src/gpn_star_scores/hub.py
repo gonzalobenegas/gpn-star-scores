@@ -1046,7 +1046,7 @@ def _publication_files(metadata_root: Path) -> list[Path]:
     return files
 
 
-def _validated_pending_publication(
+def _validated_recovery_publication(
     metadata_root: Path,
     report_path: str | Path,
     *,
@@ -1062,7 +1062,6 @@ def _validated_pending_publication(
     ]
     expected = {
         "report_version": 1,
-        "valid": False,
         "repository": repository_id,
         "public": True,
         "base_revision": expected_base_revision,
@@ -1073,12 +1072,31 @@ def _validated_pending_publication(
         "publication_approval": dict(publication_approval),
         "published_files": expected_files,
     }
-    if pending.get("status") not in {
+    status = pending.get("status")
+    is_pending = status in {
         "published_pending_validation",
         "published_validation_failed",
-    } or any(pending.get(field) != value for field, value in expected.items()):
+    }
+    is_validated = status in {"validated", "validated_existing_publication"}
+    public_validation = pending.get("public_validation")
+    valid_public_identity = (
+        isinstance(public_validation, Mapping)
+        and public_validation.get("valid") is True
+        and public_validation.get("repository") == repository_id
+        and public_validation.get("revision") == final_revision
+        and public_validation.get("credentials_sent") is False
+    )
+    if (
+        any(pending.get(field) != value for field, value in expected.items())
+        or (is_pending and pending.get("valid") is not False)
+        or (
+            is_validated
+            and (pending.get("valid") is not True or not valid_public_identity)
+        )
+        or not (is_pending or is_validated)
+    ):
         raise ValueError(
-            "validate-existing requires the matching publisher-created pending report"
+            "validate-existing requires the matching publisher-created recovery report"
         )
     return pending
 
@@ -1160,6 +1178,7 @@ def validate_existing_track_hub_publication(
     final_revision: str,
     publication_approval: Mapping[str, Any] | None,
     udc_dir: str | Path,
+    success_marker_path: str | Path,
     repository_id: str = REPOSITORY_ID,
     validator: Callable[..., dict[str, Any]] = validate_public_track_hub,
 ) -> None:
@@ -1178,7 +1197,7 @@ def validate_existing_track_hub_publication(
         )
     metadata = Path(metadata_root)
     _validate_local_metadata(metadata)
-    pending = _validated_pending_publication(
+    publication = _validated_recovery_publication(
         metadata,
         report_path,
         expected_base_revision=expected_base_revision,
@@ -1186,26 +1205,34 @@ def validate_existing_track_hub_publication(
         publication_approval=approval,
         repository_id=repository_id,
     )
-    recovered_from_status = pending["status"]
-    public_validation = validator(
-        metadata,
-        revision=final_revision,
-        udc_dir=udc_dir,
-        repository_id=repository_id,
-    )
-    if public_validation.get("valid") is not True:
-        raise RuntimeError("existing public hub validation returned an invalid result")
-    pending.update(
-        {
-            "valid": True,
-            "status": "validated_existing_publication",
-            "recovered_from_status": recovered_from_status,
-            "public_validation": public_validation,
-        }
-    )
-    pending.pop("validation_error_type", None)
-    pending.pop("validation_error", None)
-    atomic_write_json(Path(report_path), pending)
+    success_marker = Path(success_marker_path)
+    if success_marker.resolve() == Path(report_path).resolve():
+        raise ValueError("success marker and publication report must differ")
+    success_marker.unlink(missing_ok=True)
+    if publication["valid"] is not True:
+        recovered_from_status = publication["status"]
+        public_validation = validator(
+            metadata,
+            revision=final_revision,
+            udc_dir=udc_dir,
+            repository_id=repository_id,
+        )
+        if public_validation.get("valid") is not True:
+            raise RuntimeError(
+                "existing public hub validation returned an invalid result"
+            )
+        publication.update(
+            {
+                "valid": True,
+                "status": "validated_existing_publication",
+                "recovered_from_status": recovered_from_status,
+                "public_validation": public_validation,
+            }
+        )
+        publication.pop("validation_error_type", None)
+        publication.pop("validation_error", None)
+        atomic_write_json(Path(report_path), publication)
+    _atomic_write_text(success_marker, f"{final_revision}\n")
 
 
 def publish_track_hub(
@@ -1355,6 +1382,7 @@ def _parser() -> argparse.ArgumentParser:
     existing = commands.add_parser("validate-existing")
     existing.add_argument("--metadata-root", type=Path, required=True)
     existing.add_argument("--report", type=Path, required=True)
+    existing.add_argument("--success-marker", type=Path, required=True)
     existing.add_argument("--expected-base-revision", required=True)
     existing.add_argument("--final-revision", required=True)
     existing.add_argument("--approval-approved", required=True)
@@ -1413,6 +1441,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             final_revision=args.final_revision,
             publication_approval=_approval_from_args(args),
             udc_dir=args.udc_dir,
+            success_marker_path=args.success_marker,
         )
         return
     raise AssertionError(f"unhandled command: {args.command}")

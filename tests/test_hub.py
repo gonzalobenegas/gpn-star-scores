@@ -110,6 +110,15 @@ def _publication_approval() -> dict[str, object]:
     }
 
 
+def _successful_public_validation() -> dict[str, object]:
+    return {
+        "valid": True,
+        "repository": REPOSITORY_ID,
+        "revision": "b" * 40,
+        "credentials_sent": False,
+    }
+
+
 def _write_pending_publication_report(metadata: Path, path: Path) -> None:
     publication_files = [
         metadata / "README.md",
@@ -441,7 +450,7 @@ def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
 
     def validator(*args: object, **kwargs: object) -> dict[str, object]:
         validator_calls.append((args, kwargs))
-        return {"valid": True, "credentials_sent": False}
+        return _successful_public_validation()
 
     report = tmp_path / "publication.json"
     success_marker = tmp_path / "publication.complete"
@@ -544,9 +553,10 @@ def test_existing_publication_validation_recovers_without_a_commit(
 
     def validator(*args: object, **kwargs: object) -> dict[str, object]:
         calls.append((args, kwargs))
-        return {"valid": True, "credentials_sent": False}
+        return _successful_public_validation()
 
     report = tmp_path / "publication.json"
+    success_marker = tmp_path / "publication.complete"
     _write_pending_publication_report(metadata, report)
     validate_existing_track_hub_publication(
         metadata,
@@ -555,6 +565,7 @@ def test_existing_publication_validation_recovers_without_a_commit(
         final_revision="b" * 40,
         publication_approval=_publication_approval(),
         udc_dir=tmp_path / "udc",
+        success_marker_path=success_marker,
         validator=validator,
     )
 
@@ -566,6 +577,7 @@ def test_existing_publication_validation_recovers_without_a_commit(
     assert len(publication["published_files"]) == 35
     assert publication["recovered_from_status"] == "published_validation_failed"
     assert "validation_error" not in publication
+    assert success_marker.read_text() == f"{'b' * 40}\n"
 
 
 def test_existing_publication_rejects_validator_invalid_result(
@@ -573,6 +585,7 @@ def test_existing_publication_rejects_validator_invalid_result(
 ) -> None:
     metadata = _build_metadata(tmp_path)
     report = tmp_path / "publication.json"
+    success_marker = tmp_path / "publication.complete"
     _write_pending_publication_report(metadata, report)
 
     def validator(*args: object, **kwargs: object) -> dict[str, object]:
@@ -586,8 +599,10 @@ def test_existing_publication_rejects_validator_invalid_result(
             final_revision="b" * 40,
             publication_approval=_publication_approval(),
             udc_dir=tmp_path / "udc",
+            success_marker_path=success_marker,
             validator=validator,
         )
+    assert not success_marker.exists()
 
 
 def test_existing_publication_requires_matching_publisher_report(
@@ -600,7 +615,7 @@ def test_existing_publication_requires_matching_publisher_report(
     pending["base_revision"] = "c" * 40
     report.write_text(json.dumps(pending), encoding="utf-8")
 
-    with pytest.raises(ValueError, match="publisher-created pending report"):
+    with pytest.raises(ValueError, match="publisher-created recovery report"):
         validate_existing_track_hub_publication(
             metadata,
             report,
@@ -608,8 +623,49 @@ def test_existing_publication_requires_matching_publisher_report(
             final_revision="b" * 40,
             publication_approval=_publication_approval(),
             udc_dir=tmp_path / "udc",
+            success_marker_path=tmp_path / "publication.complete",
             validator=lambda *args, **kwargs: {"valid": True},
         )
+
+
+def test_existing_publication_restores_marker_from_validated_report(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path)
+    validation = tmp_path / "validation.json"
+    _write_validation_report(metadata, validation)
+    report = tmp_path / "publication.json"
+    success_marker = tmp_path / "publication.complete"
+    publish_track_hub(
+        metadata,
+        validation,
+        report,
+        expected_base_revision=ARTIFACT_REVISION,
+        publication_approval=_publication_approval(),
+        udc_dir=tmp_path / "udc",
+        success_marker_path=success_marker,
+        api=_FakeApi(),
+        validator=lambda *args, **kwargs: _successful_public_validation(),
+    )
+    success_marker.unlink()
+
+    def unexpected_validator(*args: object, **kwargs: object) -> dict[str, object]:
+        raise AssertionError("validated recovery must not repeat public validation")
+
+    validate_existing_track_hub_publication(
+        metadata,
+        report,
+        expected_base_revision=ARTIFACT_REVISION,
+        final_revision="b" * 40,
+        publication_approval=_publication_approval(),
+        udc_dir=tmp_path / "udc",
+        success_marker_path=success_marker,
+        validator=unexpected_validator,
+    )
+
+    publication = json.loads(report.read_text())
+    assert publication["status"] == "validated"
+    assert success_marker.read_text() == f"{'b' * 40}\n"
 
 
 def test_publication_rejects_missing_approval_and_slurm(
