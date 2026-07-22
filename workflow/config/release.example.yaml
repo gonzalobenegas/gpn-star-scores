@@ -1,0 +1,29 @@
+release:
+  enabled: true
+  source_root: /shared/read-only/gpn-star-scores
+  bigwig_root: /shared/project/scratch/gpn-star-scores/bigwig
+  inventory_manifest: /shared/project/scratch/gpn-star-scores/inventory/release/manifest.json
+  parquet_selection: /shared/project/scratch/gpn-star-scores/parquet-benchmark/selection.json
+  bigwig_validation: /shared/project/scratch/gpn-star-scores/bigwig/validation.json
+  output_root: /shared/project/scratch/gpn-star-scores/release
+  # Viewer readiness is reported but tracked separately when still indexing.
+  viewer_attempts: 1
+  viewer_retry_seconds: 0
+  viewer_required: false
+  hf_block_size: 4194304
+  # Issue #4 author approval for public best-effort storage. This waiver is
+  # accepted only when numeric HF capacity is the inventory's sole blocker.
+  capacity_approval:
+    approved: true
+    public_repository: true
+    evidence_url: https://github.com/gonzalobenegas/gpn-star-scores/issues/4
+    public_storage_policy_url: https://huggingface.co/docs/hub/storage-limits
+    approved_by: gonzalobenegas
+    approved_at: "2026-07-22"
+    planned_release_bytes: 524145473121
+    reserved_headroom_bytes: 52414547313
+  resources:
+    # Replace with values recorded by the smallest complete local preflight.
+    preflight: {mem_mb: null, runtime: null, disk_mb: null}
+    # Publication runs locally, never through the SCF profile.
+    publish: {mem_mb: null, runtime: null, disk_mb: null}

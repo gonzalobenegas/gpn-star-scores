@@ -105,3 +105,15 @@ inventory, Parquet-layout, and SCF-profile interfaces from issues #8, #5, and
 validated final tracks for each score set. Final BigWigs use the configured
 three-decimal visualization precision; the Parquet files remain the canonical
 full-precision scores.
+
+## Hugging Face release
+
+Issue #4's public release workflow is documented in
+[`docs/hugging-face-release.md`](docs/hugging-face-release.md). It consumes the
+complete source-layout and BigWig validation evidence, generates a checksummed
+dataset card with 16 explicit Parquet configurations, and publishes only from
+one intentional non-Slurm process. The final validation runs without
+credentials and records the immutable Hugging Face commit SHA after checking
+remote identities, Polars range behavior, card rendering, and HTTP byte ranges
+for all 40 BigWigs. It records Dataset Viewer readiness separately so hosted
+preview indexing does not block access to the public release.

@@ -6,4 +6,5 @@ Execution profiles keep scheduler-specific settings out of workflow rules.
   validation. See [`scf/README.md`](scf/README.md) before submitting jobs.
 
 Run publication without the SCF profile. The `publish` target is reserved for
-one intentional local process after artifact validation.
+the author-approved public Hugging Face release and is guarded against Slurm
+execution. See [`../../docs/hugging-face-release.md`](../../docs/hugging-face-release.md).
