@@ -1,0 +1,130 @@
+{
+  "artifact_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+  "assembly_count": 6,
+  "checks": {
+    "chromosome_headers": 40,
+    "chromosome_lengths_consistent_within_score_set": true,
+    "http_ranges": 40,
+    "hub_check": {
+      "check_settings": true,
+      "passed": true,
+      "settings_spec": "https://genome.ucsc.edu/goldenPath/help/trackDb/trackDbHub.html"
+    },
+    "representative_score_sets": 8,
+    "tracks_per_representative_query": 5,
+    "zoom_bins": 10
+  },
+  "date": "2026-07-22",
+  "generated_metadata_bytes": 79228,
+  "manual_browser_validation": {
+    "failed": [],
+    "passed_base_and_zoom": [
+      "gpn-star-hg38-v100-200m",
+      "gpn-star-hg38-m447-200m",
+      "gpn-star-hg38-p243-200m",
+      "ce11",
+      "dm6",
+      "gg6",
+      "tair10",
+      "mm39"
+    ],
+    "status": "passed"
+  },
+  "publication": {
+    "artifact_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+    "base_revision": "8ea5b82c19a61691629f9084b805758a6a0ba1c9",
+    "credentials_sent_during_validation": false,
+    "file_count": 35,
+    "hub_manifest_sha256": "160f27e92b1237351cff05c2dca7aceea8399ab49ab49d145c2e3d91655125e1",
+    "public_revision": "2cb55ca6ceb4bddbe4314d2edd0fe370b200fde8",
+    "public_validation_report_sha256": "cce5a0b278790bcf2dc07bc4793b0a7a48cdfd03e835abe26d07efe24f37ff57",
+    "public_validation_valid": true,
+    "single_commit": true
+  },
+  "publication_performed": true,
+  "representative_loci": [
+    {
+      "assembly": "hg38",
+      "chrom": "chr1",
+      "end": 10065,
+      "score_set": "gpn-star-hg38-v100-200m",
+      "start": 10064,
+      "values": {"A": 0.089, "C": 0.107, "G": 0.008, "T": 0.077, "entropy": 0.819}
+    },
+    {
+      "assembly": "hg38",
+      "chrom": "chr1",
+      "end": 10129,
+      "score_set": "gpn-star-hg38-m447-200m",
+      "start": 10128,
+      "values": {"A": 0.14, "C": 0.019, "G": 0.059, "T": 0.063, "entropy": 1.566}
+    },
+    {
+      "assembly": "hg38",
+      "chrom": "chr1",
+      "end": 10129,
+      "score_set": "gpn-star-hg38-p243-200m",
+      "start": 10128,
+      "values": {"A": 0.154, "C": 0.021, "G": 0.061, "T": 0.063, "entropy": 1.444}
+    },
+    {
+      "assembly": "ce11",
+      "chrom": "chrI",
+      "end": 65,
+      "score_set": "ce11",
+      "start": 64,
+      "values": {"A": 0.02, "C": 0.067, "G": 0.025, "T": 0.05, "entropy": 1.206}
+    },
+    {
+      "assembly": "dm6",
+      "chrom": "chr2L",
+      "end": 65,
+      "score_set": "dm6",
+      "start": 64,
+      "values": {"A": 0.017, "C": 0.038, "G": 0.023, "T": 0.054, "entropy": 0.809}
+    },
+    {
+      "assembly": "gg6",
+      "chrom": "chr1",
+      "end": 3,
+      "score_set": "gg6",
+      "start": 2,
+      "ucsc_assembly": "galGal6",
+      "values": {"A": 0.004, "C": 0.005, "G": 0.007, "T": 0.007, "entropy": 1.077}
+    },
+    {
+      "assembly": "tair10",
+      "chrom": "chr1",
+      "end": 129,
+      "score_set": "tair10",
+      "start": 128,
+      "ucsc_assembly": "GCF_000001735.4",
+      "values": {"A": 0.001, "C": 0.001, "G": 0.001, "T": 0.001, "entropy": 1.064}
+    },
+    {
+      "assembly": "mm39",
+      "chrom": "chr1",
+      "end": 3050003,
+      "score_set": "mm39",
+      "start": 3050002,
+      "values": {"A": 0.122, "C": 0.038, "G": 0.502, "T": 0.05, "entropy": 0.469}
+    }
+  ],
+  "release_manifest_sha256": "94c3298ead5c4d9044548a63d25791f03c45bf6b7254a00d74a7ef6867ce2c94",
+  "resource_measurements": {
+    "build": {"peak_rss_kib": 117060, "wall_seconds": 2.07},
+    "validate_cold_cache": {
+      "peak_rss_kib": 118892,
+      "udc_cache_bytes": 3271437,
+      "wall_seconds": 426.27
+    }
+  },
+  "score_set_count": 8,
+  "tool_versions": {
+    "ucsc-bigwiginfo": "482",
+    "ucsc-bigwigsummary": "482",
+    "ucsc-hubcheck": "482"
+  },
+  "track_count": 40,
+  "valid": true
+}

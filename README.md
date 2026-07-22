@@ -118,3 +118,21 @@ remote identities, direct Polars pushdown, counted Parquet range reads, dataset
 card rendering, and HTTP byte ranges
 for all 40 BigWigs. It records Dataset Viewer readiness separately so hosted
 preview indexing does not block access to the public release.
+
+## UCSC track hub
+
+Issue #6's opt-in workflow is documented in
+[`docs/ucsc-track-hub.md`](docs/ucsc-track-hub.md). It builds one
+multi-assembly hub with eight model groups. Each group contains a conventional
+one-dimensional entropy signal and one stacked A/C/G/T sequence-logo view.
+All 40 BigWig URLs pin the immutable issue #4 release revision. Local
+validation checks hub settings, anonymous byte ranges, exact chromosome
+headers, and direct base/zoom summaries before a separate approval-gated
+target can update the public dataset card and `ucsc/` metadata in one commit.
+The committed
+[`reports/ucsc-track-hub-preflight`](reports/ucsc-track-hub-preflight/README.md)
+records the passing production preflight, measured resources, anonymous public
+validation, and base/zoom browser rendering for all eight model groups. The
+public hub is available from the dataset's stable `resolve/main/ucsc/hub.txt`
+entry URL, while all 40 BigWigs remain pinned to the immutable issue #4
+artifact revision.

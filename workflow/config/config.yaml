@@ -150,3 +150,29 @@ release:
       mem_mb: null
       runtime: null
       disk_mb: null
+
+hub:
+  # The issue #6 hub is built and validated locally against the immutable
+  # public BigWigs. Public publication is a separate approval-gated target.
+  enabled: false
+  release_manifest: null
+  artifact_revision: null
+  expected_base_revision: null
+  contact_email: null
+  output_root: results/hub
+  # Use durable shared project scratch for hubCheck's UDC cache on SCF.
+  udc_cache_root: null
+  publication_approval: null
+  resources:
+    build:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    validate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    publish:
+      mem_mb: null
+      runtime: null
+      disk_mb: null

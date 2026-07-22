@@ -108,6 +108,7 @@ uv run --locked python -m gpn_star_scores.release validate-existing \
   --revision 40_CHARACTER_COMMIT_SHA
 ```
 
-The downstream issue #6 workflow owns `ucsc/`, `hubCheck`, browser rendering,
-and representative browser-value comparisons. Its files can be added to the
-same public repository without changing the 16 explicit table configurations.
+The downstream [issue #6 workflow](ucsc-track-hub.md) owns `ucsc/`, `hubCheck`,
+browser rendering, and representative browser-value comparisons. Its files can
+be added to the same public repository without changing the 16 explicit table
+configurations.

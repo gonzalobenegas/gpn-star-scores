@@ -1,0 +1,27 @@
+hub:
+  enabled: true
+  release_manifest: /shared/project/scratch/gpn-star-scores/release/metadata/manifest/release.json
+  artifact_revision: 5c799b2ec6aa089f0caa8294ae72adb4510f81ae
+  expected_base_revision: 2cb55ca6ceb4bddbe4314d2edd0fe370b200fde8
+  contact_email: gbenegas@berkeley.edu
+  output_root: /shared/project/scratch/gpn-star-scores/hub
+  udc_cache_root: /shared/project/scratch/gpn-star-scores/ucsc-udc-cache
+
+  # Leave this null while building and validating. Immediately before the
+  # public update, record the author's explicit approval on issue #6 and copy
+  # the exact evidence here. The publisher rejects a changed remote base.
+  publication_approval: null
+  # publication_approval:
+  #   approved: true
+  #   evidence_url: https://github.com/gonzalobenegas/gpn-star-scores/issues/6
+  #   approved_by: gonzalobenegas
+  #   approved_at: "YYYY-MM-DD"
+  #   expected_base_revision: 2cb55ca6ceb4bddbe4314d2edd0fe370b200fde8
+
+  resources:
+    # Measured issue #6 local preflight: build 2.07 s / 114.3 MiB peak RSS;
+    # cold-cache validation 7m06s / 116.1 MiB peak RSS. Requests include margin.
+    build: {mem_mb: 1024, runtime: 5, disk_mb: 1024}
+    validate: {mem_mb: 1024, runtime: 15, disk_mb: 1024}
+    # Publication runs locally and never through the SCF profile.
+    publish: {mem_mb: 1024, runtime: 20, disk_mb: 1024}
