@@ -1,0 +1,67 @@
+bigwig:
+  enabled: true
+  # Immutable issue #8 stage and its completed release manifest.
+  source_root: /shared/project/staged/gpn-star-scores
+  inventory_manifest: /shared/project/scratch/gpn-star-scores/inventory/release/manifest.json
+  # Final issue #5 selection.json. The current issue #7 implementation requires
+  # its selected_candidate to be source.
+  parquet_selection: /shared/project/scratch/gpn-star-scores/parquet-benchmark/selection.json
+  output_root: /shared/project/scratch/gpn-star-scores/bigwig
+  selection_report: null
+  batch_size: 262144
+  sample_count: 1024
+  # BigWigs are visualization products; Parquet remains the canonical source.
+  value_decimals: 3
+
+  benchmark:
+    enabled: true
+    output_root: /shared/project/scratch/gpn-star-scores/bigwig-benchmark
+    repetitions: 5
+    # Reuse the complete, author-approved issue #5 pilot chromosomes so both
+    # entropy and LLR-derived tracks are represented across two assemblies.
+    cases:
+      - id: gg6-chr32-entropy
+        score_set: gg6
+        score_type: entropy
+        chrom: "32"
+      - id: gg6-chr32-llr
+        score_set: gg6
+        score_type: llr
+        chrom: "32"
+      - id: hg38-v100-chr22-entropy
+        score_set: gpn-star-hg38-v100-200m
+        score_type: entropy
+        chrom: "22"
+      - id: hg38-v100-chr22-llr
+        score_set: gpn-star-hg38-v100-200m
+        score_type: llr
+        chrom: "22"
+
+  # Replace every null with a positive integer. Benchmark values start from
+  # the heavy-rule policy and production values must be updated from the
+  # representative epurdom pilot before full generation.
+  resources:
+    benchmark:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    report:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    build_chromosome:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    concatenate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    audit:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    aggregate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null

@@ -1,0 +1,192 @@
+{
+  "report_version": 1,
+  "date": "2026-07-22",
+  "status": "complete",
+  "benchmark": {
+    "selected_method": "direct",
+    "direct_aggregate_median_wall_seconds": 115.75,
+    "wig_aggregate_median_wall_seconds": 452.02,
+    "direct_speedup_percent": 74.3927,
+    "direct_peak_rss_bytes": 1304629248,
+    "wig_peak_rss_bytes": 1263374336,
+    "direct_peak_scratch_bytes": 0,
+    "wig_peak_scratch_bytes": 3485139726,
+    "direct_final_bytes": 987133512,
+    "wig_final_bytes": 1340594859,
+    "measured_repetitions_per_method": 20,
+    "job_ids": [
+      3346263,
+      3346264,
+      3346265,
+      3346266,
+      3346267,
+      3346268,
+      3346269,
+      3346270,
+      3346341
+    ]
+  },
+  "precision": {
+    "value_decimals": 3,
+    "sample_count_per_score_type": 1000000,
+    "entropy_equal_after_two_decimals_fraction": 0.099628,
+    "entropy_equal_after_three_decimals_fraction": 1.0,
+    "llr_equal_after_two_decimals_fraction": 0.100135,
+    "llr_equal_after_three_decimals_fraction": 1.0,
+    "canonical_parquet_precision": "Float32",
+    "final_bigwig_precision": "Float32 rounded to three decimal places"
+  },
+  "resources": {
+    "build_chromosome": {
+      "mem_mb": 24576,
+      "runtime_minutes": 30,
+      "disk_mb": 16384
+    },
+    "concatenate": {
+      "mem_mb": 49152,
+      "runtime_minutes": 60,
+      "disk_mb": 24576
+    },
+    "audit": {
+      "mem_mb": 4096,
+      "runtime_minutes": 30,
+      "disk_mb": 1024
+    },
+    "aggregate": {
+      "mem_mb": 4096,
+      "runtime_minutes": 30,
+      "disk_mb": 1024
+    }
+  },
+  "scheduler_efficiency": {
+    "benchmark_jobs": {
+      "cpu_efficiency_percent_range": [66.35, 94.42],
+      "memory_usage_percent_range": [0.09, 54.66]
+    },
+    "p243_chromosome_builds": {
+      "cpu_efficiency_percent_range": [13.31, 61.98],
+      "memory_usage_percent_range": [10.43, 92.27]
+    },
+    "p243_finalizers": {
+      "cpu_efficiency_percent_range": [82.01, 91.33],
+      "memory_usage_percent_range": [47.09, 52.47]
+    },
+    "expanded_audit_pilot": {
+      "job_id": 3348089,
+      "elapsed_seconds": 39,
+      "peak_rss_mib": 1050.18,
+      "cpu_efficiency_percent": 30.13,
+      "memory_usage_percent": 25.64
+    },
+    "expanded_audit_production": {
+      "job_count": 39,
+      "elapsed_seconds_range": [40, 265],
+      "peak_rss_mib_range": [270.43, 1438.48],
+      "cpu_efficiency_percent_range": [5.84, 16.45],
+      "memory_usage_percent_range": [6.60, 35.12]
+    }
+  },
+  "production": {
+    "inventory_manifest_sha256": "de1b00e6099574dd2f74a0702b8870332f0c7dc6b2fffe9b6648398c1bef52e4",
+    "valid": true,
+    "track_count": 40,
+    "sample_check_count": 742400,
+    "gap_check_count": 680,
+    "final_bytes": 190384237902,
+    "scratch_tree_bytes_after_cleanup": 536868312117,
+    "staged_source_bytes": 333761235219,
+    "temporary_bigwig_count_after_cleanup": 0,
+    "score_sets": {
+      "ce11": {
+        "ucsc_assembly": "ce11",
+        "bases_covered_per_track": 100271839,
+        "sample_checks_per_track": 6144,
+        "gap_checks_per_track": 0,
+        "zoom_levels": 8,
+        "bytes": {"A": 318476737, "C": 317715521, "G": 317087187, "T": 321790168, "entropy": 359573908, "total": 1634643521},
+        "slurm_run_id": "gpn-star_633e1a49-5e3d-478b-bd01-8548f0171aa2",
+        "slurm_job_range": "3347224-3347236"
+      },
+      "dm6": {
+        "ucsc_assembly": "dm6",
+        "bases_covered_per_track": 137022375,
+        "sample_checks_per_track": 7168,
+        "gap_checks_per_track": 7,
+        "zoom_levels": 8,
+        "bytes": {"A": 437562936, "C": 426041312, "G": 426553810, "T": 437254806, "entropy": 485419641, "total": 2212832505},
+        "slurm_run_id": "gpn-star_14454b6e-ca24-4ad5-8c04-a1bbf93a65b5",
+        "slurm_job_range": "3347184-3347198"
+      },
+      "gg6": {
+        "ucsc_assembly": "galGal6",
+        "bases_covered_per_track": 1040370267,
+        "sample_checks_per_track": 34816,
+        "gap_checks_per_track": 32,
+        "zoom_levels": 9,
+        "bytes": {"A": 3030771833, "C": 2968923783, "G": 2969862722, "T": 3037241668, "entropy": 3582383710, "total": 15589183716},
+        "slurm_run_id": "gpn-star_65fa575d-b31d-469a-bb74-f591e69e351b",
+        "slurm_job_range": "3347125-3347176"
+      },
+      "gpn-star-hg38-m447-200m": {
+        "ucsc_assembly": "hg38",
+        "bases_covered_per_track": 2934638380,
+        "sample_checks_per_track": 24576,
+        "gap_checks_per_track": 24,
+        "zoom_levels": 10,
+        "bytes": {"A": 8404455701, "C": 8213327305, "G": 8231401501, "T": 8396085451, "entropy": 10661247977, "total": 43906517935},
+        "slurm_job_ids": "3346847,3346884-3346887"
+      },
+      "gpn-star-hg38-p243-200m": {
+        "ucsc_assembly": "hg38",
+        "bases_covered_per_track": 2934638380,
+        "sample_checks_per_track": 24576,
+        "gap_checks_per_track": 24,
+        "zoom_levels": 10,
+        "bytes": {"A": 8121381543, "C": 7963566849, "G": 7984617636, "T": 8115723650, "entropy": 10372109541, "total": 42557399219},
+        "slurm_run_id": "gpn-star_e39e360d-3355-4d72-9f68-7020862d37ce",
+        "slurm_job_range": "3346963-3346999"
+      },
+      "gpn-star-hg38-v100-200m": {
+        "ucsc_assembly": "hg38",
+        "bases_covered_per_track": 2934747438,
+        "sample_checks_per_track": 24576,
+        "gap_checks_per_track": 24,
+        "zoom_levels": 10,
+        "bytes": {"A": 8375839576, "C": 8073559597, "G": 8060221355, "T": 8394788567, "entropy": 9897991293, "total": 42802400388},
+        "slurm_run_id": "gpn-star_3f2036fd-065e-4833-9bbd-d8a4eb496e5e",
+        "slurm_job_range": "3346913-3346945"
+      },
+      "mm39": {
+        "ucsc_assembly": "mm39",
+        "bases_covered_per_track": 2649920837,
+        "sample_checks_per_track": 21504,
+        "gap_checks_per_track": 20,
+        "zoom_levels": 10,
+        "bytes": {"A": 7894331393, "C": 7580753302, "G": 7567781947, "T": 7917281649, "entropy": 8884865693, "total": 39845013984},
+        "slurm_run_id": "gpn-star_ee849be4-d729-47ca-b763-fc87ea66c4b7",
+        "slurm_job_range": "3347043-3347098"
+      },
+      "tair10": {
+        "ucsc_assembly": "araTha1",
+        "bases_covered_per_track": 118920706,
+        "sample_checks_per_track": 5120,
+        "gap_checks_per_track": 5,
+        "zoom_levels": 8,
+        "bytes": {"A": 362243601, "C": 346859928, "G": 347541680, "T": 364488987, "entropy": 415112438, "total": 1836246634},
+        "slurm_run_id": "gpn-star_47422227-e255-4f98-b0d7-104e57bd2f26",
+        "slurm_job_range": "3347204-3347218"
+      }
+    },
+    "expanded_audit": {
+      "pilot_slurm_run_id": "gpn-star_e42c0d14-2a2c-43d5-b09f-257b03a453b0",
+      "pilot_slurm_job_id": 3348089,
+      "production_slurm_run_id": "gpn-star_64256bdd-1564-4613-99f7-63a5389dd419",
+      "production_slurm_job_range": "3348097-3348135"
+    },
+    "aggregate_validation": {
+      "slurm_run_id": "gpn-star_64256bdd-1564-4613-99f7-63a5389dd419",
+      "slurm_job_id": 3348145
+    }
+  },
+  "publication_performed": false
+}

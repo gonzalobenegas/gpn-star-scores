@@ -71,8 +71,10 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
         "inventory_manifest",
         "build_chromosome_bigwig",
         "concatenate_bigwig",
+        "audit_final_bigwig",
         "aggregate_validation",
         "render_report",
+        "render_bigwig_report",
     }
     assert all(profile["set-threads"][rule] == 4 for rule in four_thread_rules)
     assert all(profile["set-threads"][rule] == 1 for rule in one_thread_rules)
@@ -81,6 +83,10 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
     assert resources["prepare_inventory_reference"]["slurm_partition"] == "epurdom"
     assert resources["validate_score_shard"]["slurm_partition"] == "epurdom"
     assert resources["inventory_manifest"]["slurm_partition"] == "high"
+    assert resources["concatenate_bigwig"]["slurm_partition"] == "epurdom"
+    assert resources["audit_final_bigwig"]["slurm_partition"] == "epurdom"
+    assert resources["aggregate_validation"]["slurm_partition"] == "epurdom"
+    assert resources["render_bigwig_report"]["slurm_partition"] == "epurdom"
     partitions = {
         rule_resources["slurm_partition"] for rule_resources in resources.values()
     }
