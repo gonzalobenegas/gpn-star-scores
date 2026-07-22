@@ -60,31 +60,47 @@ builds requested 24,576 MB rather than the initial 16,896 MB. The retained
 requests are 24,576 MB/30 minutes/16,384 MB temporary disk for chromosome
 builds and 49,152 MB/60 minutes/24,576 MB temporary disk for finalizers. These
 are intentionally conservative restart-safe requests; smaller assemblies used
-far less memory.
+far less memory. The post-assembly audit uses the policy minimum of 4,096 MB,
+30 minutes, and 1,024 MB temporary disk.
+
+Scheduler efficiency from the retained Slurm reports is consistent with those
+requests. The eight benchmark jobs used 66.35–94.42% CPU efficiency and
+0.09–54.66% of requested memory. The representative p243 chromosome builds
+used 13.31–61.98% CPU and 10.43–92.27% memory under the initial 16,896 MB
+request; its five finalizers used 82.01–91.33% CPU and 47.09–52.47% memory
+under the retained 49,152 MB request. The expanded audit pilot (job `3348089`)
+finished in 39 seconds at 30.13% CPU and 25.64% memory efficiency. Across the
+remaining 39 concurrent audits, elapsed time was 40–265 seconds, peak RSS was
+270–1,438 MiB, CPU efficiency was 5.84–16.45%, and memory use was
+6.60–35.12% of the 4,096 MB minimum request; the low CPU ratio reflects sparse
+random reads from shared storage rather than compute pressure.
 
 ## Production result
 
 All 40 tracks passed aggregate validation against manifest
 `de1b00e6099574dd2f74a0702b8870332f0c7dc6b2fffe9b6648398c1bef52e4`.
 The aggregate report records `valid=true`, `track_count=40`, direct generation,
-and three-decimal visualization precision. Every final report passed sampled
-source agreement after declared rounding, chromosome-size and covered-base
-checks, `pyBigWig` and `bigWigInfo` reads, and zoom-level checks.
+three-decimal visualization precision, 742,400 exact post-rounding sampled
+value checks, and 680 explicit source-gap absence checks. The sample sets
+include the first and last source positions plus deterministic random positions
+for every chromosome and track. Every final report also passed chromosome-size
+and covered-base checks, `pyBigWig` and `bigWigInfo` reads, and zoom-level
+checks.
 
-| Score set | UCSC assembly | Checks/track | Zooms | A bytes | C bytes | G bytes | T bytes | Entropy bytes | Total bytes |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `ce11` | `ce11` | 6 | 8 | 318,476,737 | 317,715,521 | 317,087,187 | 321,790,168 | 359,573,908 | 1,634,643,521 |
-| `dm6` | `dm6` | 7 | 8 | 437,562,936 | 426,041,312 | 426,553,810 | 437,254,806 | 485,419,641 | 2,212,832,505 |
-| `gg6` | `galGal6` | 34 | 9 | 3,030,771,833 | 2,968,923,783 | 2,969,862,722 | 3,037,241,668 | 3,582,383,710 | 15,589,183,716 |
-| `gpn-star-hg38-m447-200m` | `hg38` | 24 | 10 | 8,404,455,701 | 8,213,327,305 | 8,231,401,501 | 8,396,085,451 | 10,661,247,977 | 43,906,517,935 |
-| `gpn-star-hg38-p243-200m` | `hg38` | 24 | 10 | 8,121,381,543 | 7,963,566,849 | 7,984,617,636 | 8,115,723,650 | 10,372,109,541 | 42,557,399,219 |
-| `gpn-star-hg38-v100-200m` | `hg38` | 24 | 10 | 8,375,839,576 | 8,073,559,597 | 8,060,221,355 | 8,394,788,567 | 9,897,991,293 | 42,802,400,388 |
-| `mm39` | `mm39` | 21 | 10 | 7,894,331,393 | 7,580,753,302 | 7,567,781,947 | 7,917,281,649 | 8,884,865,693 | 39,845,013,984 |
-| `tair10` | `araTha1` | 5 | 8 | 362,243,601 | 346,859,928 | 347,541,680 | 364,488,987 | 415,112,438 | 1,836,246,634 |
+| Score set | UCSC assembly | Samples/track | Gaps/track | Zooms | A bytes | C bytes | G bytes | T bytes | Entropy bytes | Total bytes |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `ce11` | `ce11` | 6,144 | 0 | 8 | 318,476,737 | 317,715,521 | 317,087,187 | 321,790,168 | 359,573,908 | 1,634,643,521 |
+| `dm6` | `dm6` | 7,168 | 7 | 8 | 437,562,936 | 426,041,312 | 426,553,810 | 437,254,806 | 485,419,641 | 2,212,832,505 |
+| `gg6` | `galGal6` | 34,816 | 32 | 9 | 3,030,771,833 | 2,968,923,783 | 2,969,862,722 | 3,037,241,668 | 3,582,383,710 | 15,589,183,716 |
+| `gpn-star-hg38-m447-200m` | `hg38` | 24,576 | 24 | 10 | 8,404,455,701 | 8,213,327,305 | 8,231,401,501 | 8,396,085,451 | 10,661,247,977 | 43,906,517,935 |
+| `gpn-star-hg38-p243-200m` | `hg38` | 24,576 | 24 | 10 | 8,121,381,543 | 7,963,566,849 | 7,984,617,636 | 8,115,723,650 | 10,372,109,541 | 42,557,399,219 |
+| `gpn-star-hg38-v100-200m` | `hg38` | 24,576 | 24 | 10 | 8,375,839,576 | 8,073,559,597 | 8,060,221,355 | 8,394,788,567 | 9,897,991,293 | 42,802,400,388 |
+| `mm39` | `mm39` | 21,504 | 20 | 10 | 7,894,331,393 | 7,580,753,302 | 7,567,781,947 | 7,917,281,649 | 8,884,865,693 | 39,845,013,984 |
+| `tair10` | `araTha1` | 5,120 | 5 | 8 | 362,243,601 | 346,859,928 | 347,541,680 | 364,488,987 | 415,112,438 | 1,836,246,634 |
 
 The 40 final files total 190,384,237,902 bytes (190.384 GB or 177.309
 GiB). The complete issue #7 scratch tree, including the 333,761,235,219-byte
-immutable stage and retained inventory evidence, used 536,868,102,896 bytes
+immutable stage and retained inventory evidence, used 536,868,312,117 bytes
 (about 500.0 GiB) after cleanup. Snakemake deleted every regenerable
 chromosome BigWig after its consumers succeeded; no chromosome BigWigs,
 partial outputs, or sibling temporary outputs remained. The retained exact
@@ -102,6 +118,8 @@ Production execution evidence:
 | dm6 | `gpn-star_14454b6e-ca24-4ad5-8c04-a1bbf93a65b5` | `3347184`–`3347198` |
 | tair10 | `gpn-star_47422227-e255-4f98-b0d7-104e57bd2f26` | `3347204`–`3347218` |
 | ce11 | `gpn-star_633e1a49-5e3d-478b-bd01-8548f0171aa2` | `3347224`–`3347236` |
-| aggregate validation | `gpn-star_128fb1fd-ad71-4970-9cd6-1d1b6a04b263` | `3347239` |
+| initial aggregate validation | `gpn-star_128fb1fd-ad71-4970-9cd6-1d1b6a04b263` | `3347239` |
+| expanded-audit pilot | `gpn-star_e42c0d14-2a2c-43d5-b09f-257b03a453b0` | `3348089` |
+| remaining expanded audits and aggregate | `gpn-star_64256bdd-1564-4613-99f7-63a5389dd419` | `3348097`–`3348145` |
 
 No Hugging Face upload, public visibility change, or release tag was performed.

@@ -230,14 +230,26 @@ if BIGWIG_ENABLED:
         for score_set in BIGWIG_SCORE_SET_NAMES
         for track in TRACKS
     ]
-    BIGWIG_FINAL_REPORTS = [
+    BIGWIG_CONCATENATION_REPORTS = [
         str(BIGWIG_OUTPUT_ROOT / "final-reports" / score_set / f"{track}.json")
         for score_set in BIGWIG_SCORE_SET_NAMES
         for track in TRACKS
     ]
-    if len(BIGWIG_FINAL_PATHS) != 40:
+    BIGWIG_FINAL_REPORTS = [
+        str(BIGWIG_OUTPUT_ROOT / "audit-reports" / score_set / f"{track}.json")
+        for score_set in BIGWIG_SCORE_SET_NAMES
+        for track in TRACKS
+    ]
+    if not all(
+        len(paths) == 40
+        for paths in (
+            BIGWIG_FINAL_PATHS,
+            BIGWIG_CONCATENATION_REPORTS,
+            BIGWIG_FINAL_REPORTS,
+        )
+    ):
         raise AssertionError(
-            "release catalog must produce exactly 40 final BigWigs"
+            "release catalog must produce exactly 40 BigWigs and validation reports"
         )
 
     wildcard_constraints:
@@ -425,6 +437,61 @@ if BIGWIG_ENABLED:
                 --output {output.bigwig:q} \
                 --report {output.report:q} \
                 --inputs {input.bigwigs:q} \
+                --chromosome-reports {input.chromosome_reports:q} \
+                >{log:q} 2>&1
+            """
+
+    rule audit_final_bigwig:
+        """Recheck all stored random, first/last, and gap samples."""
+        input:
+            bigwig=str(
+                BIGWIG_OUTPUT_ROOT
+                / "final"
+                / "{bigwig_score_set}"
+                / "{bigwig_track}.bw"
+            ),
+            concatenation_report=str(
+                BIGWIG_OUTPUT_ROOT
+                / "final-reports"
+                / "{bigwig_score_set}"
+                / "{bigwig_track}.json"
+            ),
+            chromosome_reports=chromosome_report_inputs,
+            manifest=str(BIGWIG_INVENTORY_MANIFEST),
+            parquet_selection=str(BIGWIG_PARQUET_SELECTION),
+        output:
+            report=str(
+                BIGWIG_OUTPUT_ROOT
+                / "audit-reports"
+                / "{bigwig_score_set}"
+                / "{bigwig_track}.json"
+            ),
+        log:
+            str(
+                BIGWIG_OUTPUT_ROOT
+                / "logs"
+                / "audit"
+                / "{bigwig_score_set}"
+                / "{bigwig_track}.log"
+            ),
+        conda:
+            "../envs/ucsc.yaml"
+        threads: 1
+        resources:
+            mem_mb=lambda wildcards: bigwig_resource("audit", "mem_mb"),
+            runtime=lambda wildcards: bigwig_resource("audit", "runtime"),
+            disk_mb=lambda wildcards: bigwig_resource("audit", "disk_mb"),
+        shell:
+            """
+            {PYTHON_EXECUTABLE:q} -m gpn_star_scores.tracks audit-final \
+                --inventory-manifest {input.manifest:q} \
+                --parquet-selection {input.parquet_selection:q} \
+                --score-set {wildcards.bigwig_score_set:q} \
+                --track {wildcards.bigwig_track:q} \
+                --value-decimals {BIGWIG_VALUE_DECIMALS} \
+                --bigwig {input.bigwig:q} \
+                --concatenation-report {input.concatenation_report:q} \
+                --report {output.report:q} \
                 --chromosome-reports {input.chromosome_reports:q} \
                 >{log:q} 2>&1
             """

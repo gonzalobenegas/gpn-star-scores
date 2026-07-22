@@ -4,14 +4,19 @@ This workflow profile uses the modern Snakemake Slurm executor and the locked
 project environment. It is intentionally limited to CPU partitions:
 
 - `epurdom` runs reference preparation, Polars scans and rewrites, shard
-  validation, benchmarks, per-chromosome BigWig generation, and the
-  environment smoke test.
-- `high` runs inventory aggregation, reporting, and final concatenation jobs.
+  validation, benchmarks, all BigWig generation/validation/reporting rules,
+  and the environment smoke test.
+- `high` runs inventory aggregation and non-BigWig reporting jobs.
 
 The profile never selects a GPU server or a lab partition outside this policy,
 and workflow rules never request GPU resources. `epurdom` is preemptible, so
 material outputs must be written to a temporary sibling, validated, and
 atomically renamed before a job succeeds.
+
+SCF removes completed jobs from `squeue` too quickly for reliable BigWig
+production polling. BigWig production commands must pass
+`--slurm-status-command=sacct`; see the issue #7 execution command in
+`docs/bigwig-benchmark.md`.
 
 ## Setup
 

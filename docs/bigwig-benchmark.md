@@ -84,13 +84,18 @@ that always include the first and last source positions. Validation requires:
   intervals;
 - absent values at a detected source gap;
 - exact Float32 agreement in benchmark and chromosome restart units;
-- agreement with configured three-decimal rounding in final browser tracks;
+- agreement with configured three-decimal rounding for every stored
+  deterministic/random sample in final browser tracks, including the first and
+  last source positions;
+- absence at the stored first source gap for every chromosome that has a gap;
 - expected chromosome sizes and covered-base counts;
 - readable `pyBigWig` files and successful `bigWigInfo` output; and
 - at least one default BigWig zoom level before and after concatenation.
 
-The final aggregate fails unless all 40 score-set/track reports are valid and
-refer to the same inventory used by the benchmark selection.
+The post-assembly audit is a separate restart unit, so existing final BigWigs
+can be rechecked without regenerating chromosome artifacts. The final aggregate
+fails unless all 40 audited score-set/track reports are valid, use the benchmark
+winner, and refer to the same inventory used by the benchmark selection.
 
 ## Running on SCF
 
@@ -107,8 +112,15 @@ uv run --locked snakemake \
   --configfile /path/to/bigwig.yaml \
   --workflow-profile workflow/profiles/scf \
   --slurm-array-jobs= \
+  --slurm-status-command=sacct \
   /shared/project/scratch/gpn-star-scores/bigwig-benchmark/selection.json
 ```
+
+Use the same two Slurm flags for the production `artifacts` target. The SCF
+profile pins every BigWig rule to `epurdom`; `high` is not compatible with the
+locked numeric runtime used by these rules and failed the production pilot
+with an illegal-instruction error. `sacct` is required because completed jobs
+leave SCF's `squeue` before Snakemake reliably observes their terminal state.
 
 After recording pilot job IDs, wall time, peak RSS, transient scratch, and
 scheduler efficiency, set production resources from those measurements and

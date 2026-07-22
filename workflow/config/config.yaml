@@ -116,6 +116,10 @@ bigwig:
       mem_mb: null
       runtime: null
       disk_mb: null
+    audit:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
     aggregate:
       mem_mb: null
       runtime: null

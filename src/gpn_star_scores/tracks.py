@@ -794,15 +794,7 @@ def concatenate_track_bigwig(
     if len(inputs) != len(chromosomes) or len(chromosome_reports) != len(chromosomes):
         raise ValueError("one input and validation report are required per chromosome")
 
-    expected_sizes = {}
-    expected_bases = 0
-    for chrom in chromosomes:
-        spec = chromosome_spec_from_contract(contract, score_set, chrom)
-        expected_sizes[spec.ucsc_name] = spec.length
-        score_type = "entropy" if track == "entropy" else "llr"
-        expected_bases += _position_count(
-            _record_for(contract, score_set, score_type, chrom)
-        )
+    expected_sizes = assembly_chromosome_sizes_from_contract(contract, score_set)
     reports = [_load_json(path) for path in chromosome_reports]
     methods = {report.get("method") for report in reports}
     if len(methods) != 1 or not methods.issubset(METHODS):
@@ -837,45 +829,179 @@ def concatenate_track_bigwig(
                     f"{error.stderr.strip()}"
                 ) from error
             concatenation_method = "bigWigCat"
-        summary = validate_bigwig(
+        payload = _final_track_validation_payload(
             temporary,
-            expected_sizes,
-            expected_bases_covered=expected_bases,
+            chromosome_reports,
+            inventory_manifest_path,
+            parquet_selection_path,
+            score_set=score_set,
+            track=track,
+            value_decimals=value_decimals,
+            concatenation_method=concatenation_method,
+            validation_stage="pre-promotion",
+            bigwig_info=bigwig_info,
         )
-        info = subprocess.run(
-            [bigwig_info, str(temporary)],
-            check=True,
-            text=True,
-            capture_output=True,
-        ).stdout
-        zoom_match = re.search(r"^zoomLevels:\s*(\d+)\s*$", info, re.MULTILINE)
-        if zoom_match is None or int(zoom_match.group(1)) < 1:
-            raise ValueError("bigWigInfo reports no zoom levels")
+        os.replace(temporary, output)
+        atomic_write_json(Path(report_path), payload)
+    finally:
+        shutil.rmtree(temporary_dir, ignore_errors=True)
 
-        concatenated_checks = []
-        with pyBigWig.open(str(temporary)) as bigwig:
-            for chrom, report in zip(chromosomes, reports, strict=True):
-                chromosome_record = report.get("chromosome")
-                if (
-                    report.get("report_version") != 1
-                    or report.get("valid") is not True
-                    or report.get("score_set") != score_set
-                    or report.get("inventory_manifest_sha256")
-                    != contract.manifest_sha256
-                    or not isinstance(chromosome_record, Mapping)
-                    or chromosome_record.get("source_name") != chrom
-                    or chromosome_record.get("ucsc_name") != ucsc_chromosome_name(chrom)
-                ):
-                    raise ValueError(
-                        f"invalid chromosome report for {score_set}/{chrom}"
-                    )
-                validation_key = "entropy" if track == "entropy" else "llr"
-                samples = report["validation"][validation_key]["samples"][track]
-                if not samples:
-                    raise ValueError(f"chromosome report has no {track} samples")
-                sample = samples[0]
-                position = int(sample["position_1based"])
-                ucsc_chrom = ucsc_chromosome_name(chrom)
+
+def audit_final_track_bigwig(
+    bigwig_path: str | Path,
+    chromosome_report_paths: Sequence[str | Path],
+    concatenation_report_path: str | Path,
+    report_path: str | Path,
+    inventory_manifest_path: str | Path,
+    parquet_selection_path: str | Path,
+    *,
+    score_set: str,
+    track: str,
+    value_decimals: int | None = None,
+    bigwig_info: str = "bigWigInfo",
+) -> None:
+    """Revalidate an existing final artifact without rebuilding chromosomes."""
+
+    contract = load_track_input_contract(
+        inventory_manifest_path, parquet_selection_path
+    )
+    concatenation_report = _load_json(concatenation_report_path)
+    concatenation_method = concatenation_report.get("concatenation_method")
+    if (
+        concatenation_report.get("report_version") != 1
+        or concatenation_report.get("valid") is not True
+        or concatenation_report.get("score_set") != score_set
+        or concatenation_report.get("track") != track
+        or concatenation_report.get("value_decimals") != value_decimals
+        or concatenation_report.get("inventory_manifest_sha256")
+        != contract.manifest_sha256
+        or not isinstance(concatenation_method, str)
+        or not concatenation_method
+    ):
+        raise ValueError("invalid concatenation report for final-track audit")
+
+    payload = _final_track_validation_payload(
+        bigwig_path,
+        chromosome_report_paths,
+        inventory_manifest_path,
+        parquet_selection_path,
+        score_set=score_set,
+        track=track,
+        value_decimals=value_decimals,
+        concatenation_method=concatenation_method,
+        validation_stage="post-assembly-audit",
+        bigwig_info=bigwig_info,
+    )
+    atomic_write_json(Path(report_path), payload)
+
+
+def _final_track_validation_payload(
+    bigwig_path: str | Path,
+    chromosome_report_paths: Sequence[str | Path],
+    inventory_manifest_path: str | Path,
+    parquet_selection_path: str | Path,
+    *,
+    score_set: str,
+    track: str,
+    value_decimals: int | None,
+    concatenation_method: str,
+    validation_stage: str,
+    bigwig_info: str,
+) -> dict[str, Any]:
+    """Validate every stored sample plus first/last and gap boundaries."""
+
+    if track not in TRACKS:
+        raise ValueError(f"unknown track: {track!r}")
+    _validate_value_decimals(value_decimals)
+    contract = load_track_input_contract(
+        inventory_manifest_path, parquet_selection_path
+    )
+    assembly = score_set_assembly(score_set)
+    chromosomes = ASSEMBLIES[assembly].chromosomes
+    reports = [_load_json(path) for path in chromosome_report_paths]
+    if len(reports) != len(chromosomes):
+        raise ValueError("one validation report is required per chromosome")
+
+    expected_sizes = {}
+    expected_bases = 0
+    for chrom in chromosomes:
+        spec = chromosome_spec_from_contract(contract, score_set, chrom)
+        expected_sizes[spec.ucsc_name] = spec.length
+        score_type = "entropy" if track == "entropy" else "llr"
+        expected_bases += _position_count(
+            _record_for(contract, score_set, score_type, chrom)
+        )
+    methods = {report.get("method") for report in reports}
+    if len(methods) != 1 or not methods.issubset(METHODS):
+        raise ValueError("chromosome reports must use one valid BigWig method")
+    method = str(next(iter(methods)))
+
+    path = Path(bigwig_path)
+    summary = validate_bigwig(
+        path,
+        expected_sizes,
+        expected_bases_covered=expected_bases,
+    )
+    info = subprocess.run(
+        [bigwig_info, str(path)],
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout
+    zoom_match = re.search(r"^zoomLevels:\s*(\d+)\s*$", info, re.MULTILINE)
+    if zoom_match is None or int(zoom_match.group(1)) < 1:
+        raise ValueError("bigWigInfo reports no zoom levels")
+
+    chromosome_checks = []
+    sample_check_count = 0
+    gap_check_count = 0
+    validation_key = "entropy" if track == "entropy" else "llr"
+    bigwig = pyBigWig.open(str(path))
+    if bigwig is None or not bigwig.isBigWig():
+        raise ValueError(f"not a readable final BigWig: {path}")
+    try:
+        for chrom, report in zip(chromosomes, reports, strict=True):
+            chromosome_record = report.get("chromosome")
+            if (
+                report.get("report_version") != 1
+                or report.get("valid") is not True
+                or report.get("score_set") != score_set
+                or report.get("inventory_manifest_sha256") != contract.manifest_sha256
+                or not isinstance(chromosome_record, Mapping)
+                or chromosome_record.get("source_name") != chrom
+                or chromosome_record.get("ucsc_name") != ucsc_chromosome_name(chrom)
+            ):
+                raise ValueError(f"invalid chromosome report for {score_set}/{chrom}")
+            validation = report.get("validation", {}).get(validation_key)
+            if not isinstance(validation, Mapping):
+                raise ValueError(f"missing {validation_key} validation for {chrom}")
+            samples_by_track = validation.get("samples")
+            if not isinstance(samples_by_track, Mapping):
+                raise ValueError(f"missing sample mapping for {score_set}/{chrom}")
+            samples = samples_by_track.get(track)
+            if not isinstance(samples, list) or not samples:
+                raise ValueError(f"chromosome report has no {track} samples")
+            if validation.get("sample_count") != len(samples):
+                raise ValueError(
+                    f"sample count differs for {score_set}/{chrom}/{track}"
+                )
+
+            positions = [
+                int(sample["position_1based"])
+                for sample in samples
+                if isinstance(sample, Mapping)
+            ]
+            if len(positions) != len(samples):
+                raise ValueError(f"malformed samples for {score_set}/{chrom}/{track}")
+            first_position = int(validation["first_position"])
+            last_position = int(validation["last_position"])
+            if first_position not in positions or last_position not in positions:
+                raise ValueError(
+                    f"samples omit first or last position for {score_set}/{chrom}/{track}"
+                )
+
+            ucsc_chrom = ucsc_chromosome_name(chrom)
+            for sample, position in zip(samples, positions, strict=True):
                 observed = np.float32(
                     bigwig.values(ucsc_chrom, position - 1, position)[0]
                 )
@@ -885,39 +1011,63 @@ def concatenate_track_bigwig(
                 )[0]
                 if not _float32_exact(expected, observed):
                     raise ValueError(
-                        f"concatenated {track} differs at {ucsc_chrom}:{position}"
+                        f"final {track} differs at {ucsc_chrom}:{position}"
                     )
-                concatenated_checks.append(
-                    {
-                        "chrom": ucsc_chrom,
-                        "position_1based": position,
-                        "expected_float32": float(expected),
-                        "observed_float32": float(observed),
-                    }
-                )
+            sample_check_count += len(samples)
 
-        os.replace(temporary, output)
-        atomic_write_json(
-            Path(report_path),
-            {
-                "report_version": 1,
-                "valid": True,
-                "score_set": score_set,
-                "assembly": assembly,
-                "ucsc_assembly": ucsc_assembly_name(assembly),
-                "track": track,
-                "value_decimals": value_decimals,
-                "chromosome_method": method,
-                "concatenation_method": concatenation_method,
-                "input_count": len(inputs),
-                "inventory_manifest_sha256": contract.manifest_sha256,
-                "summary": asdict(summary),
-                "bigWigInfo": info,
-                "concatenated_sample_checks": concatenated_checks,
-            },
-        )
+            first_gap = validation.get("first_gap_position")
+            gap_absent: bool | None = None
+            if first_gap is not None:
+                gap_position = int(first_gap)
+                gap_checks = validation.get("gap_checks")
+                if (
+                    not isinstance(gap_checks, Mapping)
+                    or gap_checks.get(track) is not True
+                ):
+                    raise ValueError(
+                        f"chromosome report lacks the {track} gap check for {chrom}"
+                    )
+                gap_value = bigwig.values(ucsc_chrom, gap_position - 1, gap_position)[0]
+                if not np.isnan(gap_value):
+                    raise ValueError(
+                        f"final {track} unexpectedly covers gap at "
+                        f"{ucsc_chrom}:{gap_position}"
+                    )
+                gap_absent = True
+                gap_check_count += 1
+
+            chromosome_checks.append(
+                {
+                    "chrom": ucsc_chrom,
+                    "sample_count": len(samples),
+                    "first_position_1based": first_position,
+                    "last_position_1based": last_position,
+                    "first_gap_position_1based": first_gap,
+                    "gap_absent": gap_absent,
+                }
+            )
     finally:
-        shutil.rmtree(temporary_dir, ignore_errors=True)
+        bigwig.close()
+
+    return {
+        "report_version": 1,
+        "valid": True,
+        "validation_stage": validation_stage,
+        "score_set": score_set,
+        "assembly": assembly,
+        "ucsc_assembly": ucsc_assembly_name(assembly),
+        "track": track,
+        "value_decimals": value_decimals,
+        "chromosome_method": method,
+        "concatenation_method": concatenation_method,
+        "input_count": len(reports),
+        "inventory_manifest_sha256": contract.manifest_sha256,
+        "summary": asdict(summary),
+        "bigWigInfo": info,
+        "concatenated_sample_check_count": sample_check_count,
+        "concatenated_gap_check_count": gap_check_count,
+        "concatenated_chromosome_checks": chromosome_checks,
+    }
 
 
 def aggregate_track_validation(
@@ -937,6 +1087,7 @@ def aggregate_track_validation(
         f"{report.get('score_set')}/{report.get('track')}"
         for report in reports
         if report.get("valid") is not True
+        or report.get("validation_stage") != "post-assembly-audit"
     ]
     if invalid:
         raise ValueError(f"invalid final BigWig reports: {invalid!r}")
@@ -951,6 +1102,9 @@ def aggregate_track_validation(
         or selection.get("selected_method") not in METHODS
     ):
         raise ValueError("BigWig benchmark has no valid selected method")
+    chromosome_methods = {report.get("chromosome_method") for report in reports}
+    if chromosome_methods != {selection["selected_method"]}:
+        raise ValueError("final reports do not use the selected benchmark method")
     manifest_hashes = {report.get("inventory_manifest_sha256") for report in reports}
     if manifest_hashes != {selection.get("inventory_manifest_sha256")}:
         raise ValueError("final reports and benchmark use different inventories")
@@ -962,6 +1116,12 @@ def aggregate_track_validation(
         "selected_method": selection["selected_method"],
         "value_decimals": final_value_decimals,
         "inventory_manifest_sha256": next(iter(manifest_hashes)),
+        "sample_check_count": sum(
+            int(report["concatenated_sample_check_count"]) for report in reports
+        ),
+        "gap_check_count": sum(
+            int(report["concatenated_gap_check_count"]) for report in reports
+        ),
         "tracks": sorted(
             [
                 {
@@ -971,6 +1131,8 @@ def aggregate_track_validation(
                     "track": report["track"],
                     "bases_covered": report["summary"]["bases_covered"],
                     "zoom_levels": report["summary"]["zoom_levels"],
+                    "sample_check_count": report["concatenated_sample_check_count"],
+                    "gap_check_count": report["concatenated_gap_check_count"],
                 }
                 for report in reports
             ],
@@ -991,6 +1153,10 @@ def aggregate_track_validation(
         f"Selected method: `{payload['selected_method']}`",
         "",
         f"Validated final tracks: {payload['track_count']}",
+        "",
+        f"Validated sampled values: {payload['sample_check_count']}",
+        "",
+        f"Validated source gaps: {payload['gap_check_count']}",
         "",
         "Every final BigWig opened through pyBigWig and bigWigInfo, reported zoom "
         "levels, matched expected chromosome sizes and covered-base counts, and "
@@ -1430,6 +1596,19 @@ def _build_parser() -> argparse.ArgumentParser:
     concatenate.add_argument(
         "--chromosome-reports", nargs="+", type=Path, required=True
     )
+
+    audit_final = subparsers.add_parser("audit-final")
+    audit_final.add_argument("--inventory-manifest", type=Path, required=True)
+    audit_final.add_argument("--parquet-selection", type=Path, required=True)
+    audit_final.add_argument("--score-set", required=True)
+    audit_final.add_argument("--track", choices=TRACKS, required=True)
+    audit_final.add_argument("--bigwig", type=Path, required=True)
+    audit_final.add_argument("--concatenation-report", type=Path, required=True)
+    audit_final.add_argument("--report", type=Path, required=True)
+    audit_final.add_argument("--value-decimals", type=int)
+    audit_final.add_argument(
+        "--chromosome-reports", nargs="+", type=Path, required=True
+    )
     return parser
 
 
@@ -1487,6 +1666,18 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.inputs,
             args.chromosome_reports,
             args.output,
+            args.report,
+            args.inventory_manifest,
+            args.parquet_selection,
+            score_set=args.score_set,
+            track=args.track,
+            value_decimals=args.value_decimals,
+        )
+    elif args.command == "audit-final":
+        audit_final_track_bigwig(
+            args.bigwig,
+            args.chromosome_reports,
+            args.concatenation_report,
             args.report,
             args.inventory_manifest,
             args.parquet_selection,

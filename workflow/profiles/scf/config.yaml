@@ -31,6 +31,7 @@ set-threads:
   benchmark_bigwig_method: 1
   build_chromosome_bigwig: 1
   concatenate_bigwig: 1
+  audit_final_bigwig: 1
   aggregate_validation: 1
   render_report: 1
   render_bigwig_report: 1
@@ -59,10 +60,12 @@ set-resources:
   build_chromosome_bigwig:
     slurm_partition: epurdom
   concatenate_bigwig:
-    slurm_partition: high
+    slurm_partition: epurdom
+  audit_final_bigwig:
+    slurm_partition: epurdom
   aggregate_validation:
-    slurm_partition: high
+    slurm_partition: epurdom
   render_report:
     slurm_partition: high
   render_bigwig_report:
-    slurm_partition: high
+    slurm_partition: epurdom
