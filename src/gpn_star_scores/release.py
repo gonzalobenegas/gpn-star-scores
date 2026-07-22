@@ -110,6 +110,12 @@ def _atomic_write_json(path: Path, value: Any) -> None:
     )
 
 
+def _paths_overlap(first: Path, second: Path) -> bool:
+    first = first.resolve()
+    second = second.resolve()
+    return first == second or first in second.parents or second in first.parents
+
+
 def _validated_inventory(
     source_root: Path,
     manifest: Mapping[str, Any],
@@ -158,8 +164,11 @@ def _validated_inventory(
         if not source_path.is_file() or source_path.stat().st_size != size:
             raise ValueError(f"staged source identity differs for {relative_path}")
         parquet = record.get("parquet")
-        if not isinstance(parquet, Mapping) or not isinstance(
-            parquet.get("num_rows"), int
+        if (
+            not isinstance(parquet, Mapping)
+            or not isinstance(parquet.get("num_rows"), int)
+            or isinstance(parquet["num_rows"], bool)
+            or parquet["num_rows"] <= 0
         ):
             raise ValueError(f"inventory record lacks row count for {relative_path}")
         content = record.get("content")
@@ -291,10 +300,31 @@ def _validated_bigwigs(
     return release_records
 
 
+def _dataset_size_category(row_count: int) -> str:
+    if row_count < 1_000:
+        return "n<1K"
+    categories = (
+        (10_000, "1K<n<10K"),
+        (100_000, "10K<n<100K"),
+        (1_000_000, "100K<n<1M"),
+        (10_000_000, "1M<n<10M"),
+        (100_000_000, "10M<n<100M"),
+        (1_000_000_000, "100M<n<1B"),
+        (10_000_000_000, "1B<n<10B"),
+        (100_000_000_000, "10B<n<100B"),
+        (1_000_000_000_000, "100B<n<1T"),
+    )
+    return next(
+        (category for upper_bound, category in categories if row_count < upper_bound),
+        "n>1T",
+    )
+
+
 def render_dataset_card(release_manifest: Mapping[str, Any]) -> str:
     """Render the public dataset card and its explicit data-file globs."""
 
     configs = release_manifest["dataset_configs"]
+    total_rows = sum(record["rows"] for record in release_manifest["parquet"]["files"])
     frontmatter = [
         "---",
         "license: apache-2.0",
@@ -305,7 +335,7 @@ def render_dataset_card(release_manifest: Mapping[str, Any]) -> str:
         "  - variant-effect-prediction",
         "  - polars",
         "size_categories:",
-        "  - 100B<n<1T",
+        f"  - {_dataset_size_category(total_rows)}",
         "configs:",
     ]
     for config in configs:
@@ -501,6 +531,10 @@ def build_release_metadata(
     selection_path = Path(parquet_selection_path)
     bigwig_validation_path = Path(bigwig_validation_path)
     output = Path(output_dir)
+    if _paths_overlap(source_root, output):
+        raise ValueError(
+            "release output must not overlap the immutable staged source root"
+        )
 
     inventory = _read_json(inventory_path)
     inventory_sha256 = sha256_file(inventory_path)
@@ -768,20 +802,23 @@ def _validate_hf_range_queries(
         ).select("pos", *score_columns)
         plan = lazy_query.explain(optimized=True)
         direct = lazy_query.head(1).collect()
-        if (
-            direct.height != 1
-            or "PROJECT" not in plan.upper()
-            or "SELECTION" not in plan.upper()
-        ):
+        projection_pushdown = "PROJECT" in plan.upper()
+        predicate_pushdown = "SELECTION" in plan.upper()
+        if direct.height != 1 or not projection_pushdown or not predicate_pushdown:
             raise RuntimeError(f"direct Polars pushdown check failed for {uri}")
         results.append(
             {
                 "uri": uri,
                 "object_bytes": size,
-                "transferred_bytes": transferred,
-                "rows": frame.height,
-                "direct_polars": True,
-                "optimized_plan": plan,
+                "range_reader_engine": "pyarrow",
+                "range_reader_transferred_bytes": transferred,
+                "range_reader_rows": frame.height,
+                "polars_engine": "polars",
+                "polars_rows": direct.height,
+                "polars_projection_pushdown": projection_pushdown,
+                "polars_predicate_pushdown": predicate_pushdown,
+                "polars_transfer_bytes_measured": False,
+                "polars_optimized_plan": plan,
             }
         )
     return results
@@ -834,6 +871,18 @@ def validate_public_release(
             *release_manifest["parquet"]["files"],
             *release_manifest["bigwig"]["files"],
         ]
+        expected_paths = {record["path"] for record in expected_files}
+        published_artifact_paths = {
+            path
+            for path in siblings
+            if path.startswith("data/") or path.startswith("bigwig/")
+        }
+        unexpected_paths = sorted(published_artifact_paths - expected_paths)
+        if unexpected_paths:
+            raise RuntimeError(
+                "published release has unexpected data artifacts: "
+                + ", ".join(unexpected_paths)
+            )
         checksum_checks = []
         for record in expected_files:
             sibling = siblings.get(record["path"])
@@ -857,7 +906,12 @@ def validate_public_release(
         page_status, _, page_content = _read_url(
             f"{HUGGING_FACE_URL}/datasets/{repository_id}", opener=opener
         )
-        if page_status != 200 or not page_content:
+        page = page_content.decode("utf-8", errors="replace")
+        if (
+            page_status != 200
+            or repository_id not in page
+            or "GPN-Star genome-wide scores" not in page
+        ):
             raise RuntimeError("public dataset-card page did not render")
 
         range_checks = []
@@ -917,8 +971,7 @@ def validate_public_release(
                 ]
                 if observed_columns != expected_columns or not payload.get("rows"):
                     raise RuntimeError(
-                        "Dataset Viewer schema differs for "
-                        f"{config['config_name']}"
+                        f"Dataset Viewer schema differs for {config['config_name']}"
                     )
                 viewer_checks.append(
                     {
@@ -945,6 +998,7 @@ def validate_public_release(
         "revision": revision,
         "credentials_sent": False,
         "checksum_file_count": len(checksum_checks),
+        "published_artifact_file_count": len(published_artifact_paths),
         "viewer_required": viewer_required,
         "viewer_ready": not viewer_pending,
         "viewer_config_count": len(viewer_checks),
@@ -953,7 +1007,7 @@ def validate_public_release(
         "dataset_card_rendered": True,
         "bigwig_range_count": len(range_checks),
         "bigwig_range_checks": range_checks,
-        "polars_range_checks": polars_checks,
+        "parquet_query_checks": polars_checks,
     }
 
 

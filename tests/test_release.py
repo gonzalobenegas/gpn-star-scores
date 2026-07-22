@@ -170,6 +170,8 @@ def test_release_metadata_has_exact_configs_models_and_checksums(
     readme = (output / "README.md").read_text(encoding="utf-8")
     metadata = yaml.safe_load(readme.split("---", maxsplit=2)[1])
     assert len(metadata["configs"]) == 16
+    assert metadata["size_categories"] == ["n<1K"]
+    assert release_module._dataset_size_category(51_402_120_888) == "10B<n<100B"
     assert all("bigwig" not in str(config) for config in metadata["configs"])
     assert all("ucsc" not in str(config) for config in metadata["configs"])
     assert "songlab/gpn-star-ce11-n135-25m" in readme
@@ -196,6 +198,22 @@ def test_release_preflight_rejects_blocked_inventory(tmp_path: Path) -> None:
     output = tmp_path / "metadata"
 
     with pytest.raises(ValueError, match="not release-ready"):
+        build_release_metadata(
+            inputs["source_root"],
+            inputs["bigwig_root"],
+            inputs["inventory"],
+            inputs["selection"],
+            inputs["bigwig_validation"],
+            output,
+        )
+    assert not output.exists()
+
+
+def test_release_preflight_rejects_output_inside_source_root(tmp_path: Path) -> None:
+    inputs = _write_release_inputs(tmp_path)
+    output = inputs["source_root"] / "release"
+
+    with pytest.raises(ValueError, match="must not overlap"):
         build_release_metadata(
             inputs["source_root"],
             inputs["bigwig_root"],
@@ -409,6 +427,52 @@ release:
     assert "publish" in result.stdout
 
 
+def test_enabled_workflow_rejects_output_inside_source_root(tmp_path: Path) -> None:
+    inputs = _write_release_inputs(tmp_path)
+    config_path = tmp_path / "release-overlap.yaml"
+    config_path.write_text(
+        f"""\
+release:
+  enabled: true
+  source_root: {inputs["source_root"]}
+  bigwig_root: {inputs["bigwig_root"]}
+  inventory_manifest: {inputs["inventory"]}
+  parquet_selection: {inputs["selection"]}
+  bigwig_validation: {inputs["bigwig_validation"]}
+  output_root: {inputs["source_root"] / "release"}
+  resources:
+    preflight: {{mem_mb: 1024, runtime: 30, disk_mb: 1024}}
+    publish: {{mem_mb: 1024, runtime: 30, disk_mb: 1024}}
+""",
+        encoding="utf-8",
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(REPOSITORY_ROOT / "src")
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snakemake",
+            "--snakefile",
+            "workflow/Snakefile",
+            "--configfile",
+            str(config_path),
+            "--cores",
+            "1",
+            "--dry-run",
+            "publish",
+        ],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "must not overlap" in result.stdout + result.stderr
+
+
 def test_public_validation_checks_all_public_interfaces(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -472,7 +536,10 @@ def test_public_validation_checks_all_public_interfaces(
                 b"x" * (end + 1),
                 {"Content-Range": f"bytes 0-{end}/{record['size']}"},
             )
-        return _FakeResponse(200, b"<html>rendered card</html>")
+        return _FakeResponse(
+            200,
+            b"<html>songlab/gpn-star-scores GPN-Star genome-wide scores</html>",
+        )
 
     monkeypatch.setattr(
         release_module,
@@ -492,12 +559,13 @@ def test_public_validation_checks_all_public_interfaces(
     assert report["valid"] is True
     assert report["credentials_sent"] is False
     assert report["checksum_file_count"] == 330
+    assert report["published_artifact_file_count"] == 330
     assert report["viewer_required"] is False
     assert report["viewer_ready"] is True
     assert report["viewer_config_count"] == 16
     assert report["viewer_pending"] == []
     assert report["bigwig_range_count"] == 40
-    assert len(report["polars_range_checks"]) == 2
+    assert len(report["parquet_query_checks"]) == 2
 
 
 def test_public_validation_reports_pending_viewer_without_blocking(
@@ -534,7 +602,10 @@ def test_public_validation_reports_pending_viewer_without_blocking(
                 b"x" * (end + 1),
                 {"Content-Range": f"bytes 0-{end}/{record['size']}"},
             )
-        return _FakeResponse(200, b"<html>rendered card</html>")
+        return _FakeResponse(
+            200,
+            b"<html>songlab/gpn-star-scores GPN-Star genome-wide scores</html>",
+        )
 
     monkeypatch.setattr(
         release_module,
@@ -552,11 +623,77 @@ def test_public_validation_reports_pending_viewer_without_blocking(
     assert report["valid"] is True
     assert report["checksum_file_count"] == 330
     assert report["bigwig_range_count"] == 40
-    assert len(report["polars_range_checks"]) == 2
+    assert len(report["parquet_query_checks"]) == 2
     assert report["viewer_required"] is False
     assert report["viewer_ready"] is False
     assert report["viewer_config_count"] == 0
     assert len(report["viewer_pending"]) == 16
+
+
+def test_public_validation_rejects_unexpected_published_artifact(
+    tmp_path: Path,
+) -> None:
+    _, metadata = _build_metadata(tmp_path)
+    manifest = json.loads((metadata / "manifest" / "release.json").read_text())
+    siblings = [
+        SimpleNamespace(
+            rfilename=record["path"],
+            size=record["size"],
+            lfs={"sha256": record["sha256"]},
+        )
+        for record in [*manifest["parquet"]["files"], *manifest["bigwig"]["files"]]
+    ]
+    siblings.append(
+        SimpleNamespace(
+            rfilename="data/stale/entropy/entropy_chr1.parquet",
+            size=1,
+            lfs={"sha256": "0" * 64},
+        )
+    )
+
+    class PublicApi:
+        def repo_info(self, *args: object, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(private=False, sha="e" * 40, siblings=siblings)
+
+    with pytest.raises(RuntimeError, match="unexpected data artifacts"):
+        validate_public_release(
+            metadata,
+            repository_id=REPOSITORY_ID,
+            revision="e" * 40,
+            api=PublicApi(),
+        )
+
+
+def test_public_validation_rejects_unrelated_rendered_page(tmp_path: Path) -> None:
+    _, metadata = _build_metadata(tmp_path)
+    manifest = json.loads((metadata / "manifest" / "release.json").read_text())
+    siblings = [
+        SimpleNamespace(
+            rfilename=record["path"],
+            size=record["size"],
+            lfs={"sha256": record["sha256"]},
+        )
+        for record in [*manifest["parquet"]["files"], *manifest["bigwig"]["files"]]
+    ]
+
+    class PublicApi:
+        def repo_info(self, *args: object, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(private=False, sha="f" * 40, siblings=siblings)
+
+    def opener(request: str | Request, **kwargs: object) -> _FakeResponse:
+        url = request.full_url if isinstance(request, Request) else request
+        if url.endswith("/README.md"):
+            return _FakeResponse(200, (metadata / "README.md").read_bytes())
+        return _FakeResponse(200, b"<html>unrelated page</html>")
+
+    with pytest.raises(RuntimeError, match="page did not render"):
+        validate_public_release(
+            metadata,
+            repository_id=REPOSITORY_ID,
+            revision="f" * 40,
+            api=PublicApi(),
+            opener=opener,
+        )
 
 
 def test_existing_revision_validation_writes_report(tmp_path: Path) -> None:

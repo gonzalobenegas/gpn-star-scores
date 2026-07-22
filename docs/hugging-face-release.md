@@ -77,10 +77,16 @@ and disables implicit credentials. It requires:
 - the public dataset page and dataset-card source to load;
 - every BigWig to return HTTP `206` with a valid `Content-Range` for a byte
   range request;
-- representative direct Polars `hf://` scans to retain predicate/projection
-  pushdown; and
-- counted representative interval queries to transfer fewer bytes than the
-  corresponding chromosome object.
+- representative direct Polars `hf://` scans to return interval results while
+  retaining predicate/projection pushdown; and
+- separately counted PyArrow/HfFileSystem interval queries to transfer fewer
+  bytes than the corresponding chromosome object.
+
+The report keeps these two checks distinct: the counted range-reader bytes are
+not presented as Polars transfer measurements. This is consistent with
+[Polars' cloud-scan guidance](https://docs.pola.rs/user-guide/io/cloud-storage/),
+which documents that lazy cloud scans apply predicate and projection pushdown
+before downloading data.
 
 Dataset Viewer readiness is a reported, non-blocking convenience check. The
 validator probes all 16 configurations without credentials and records either

@@ -8,7 +8,6 @@ from gpn_star_scores.catalog import SCORE_SETS, SCORE_TYPES, expected_shards
 from gpn_star_scores.release import build_release_metadata, publish_release
 from gpn_star_scores.tracks import TRACKS
 
-
 RELEASE_CONFIG = config.get("release", {})
 RELEASE_ENABLED = bool(RELEASE_CONFIG.get("enabled", False))
 RELEASE_OUTPUT_ROOT = Path(RELEASE_CONFIG.get("output_root", "results/release"))
@@ -45,10 +44,16 @@ if RELEASE_ENABLED:
     RELEASE_INVENTORY_MANIFEST = Path(RELEASE_CONFIG["inventory_manifest"])
     RELEASE_PARQUET_SELECTION = Path(RELEASE_CONFIG["parquet_selection"])
     RELEASE_BIGWIG_VALIDATION = Path(RELEASE_CONFIG["bigwig_validation"])
+    if (
+        RELEASE_SOURCE_ROOT.resolve() == RELEASE_OUTPUT_ROOT.resolve()
+        or RELEASE_SOURCE_ROOT.resolve() in RELEASE_OUTPUT_ROOT.resolve().parents
+        or RELEASE_OUTPUT_ROOT.resolve() in RELEASE_SOURCE_ROOT.resolve().parents
+    ):
+        raise WorkflowError(
+            "release.output_root must not overlap the immutable release.source_root"
+        )
     RELEASE_VIEWER_ATTEMPTS = int(RELEASE_CONFIG.get("viewer_attempts", 1))
-    RELEASE_VIEWER_RETRY_SECONDS = float(
-        RELEASE_CONFIG.get("viewer_retry_seconds", 0)
-    )
+    RELEASE_VIEWER_RETRY_SECONDS = float(RELEASE_CONFIG.get("viewer_retry_seconds", 0))
     RELEASE_VIEWER_REQUIRED = bool(RELEASE_CONFIG.get("viewer_required", False))
     RELEASE_HF_BLOCK_SIZE = int(RELEASE_CONFIG.get("hf_block_size", 4_194_304))
     RELEASE_CAPACITY_APPROVAL = RELEASE_CONFIG.get("capacity_approval")

@@ -114,6 +114,7 @@ complete source-layout and BigWig validation evidence, generates a checksummed
 dataset card with 16 explicit Parquet configurations, and publishes only from
 one intentional non-Slurm process. The final validation runs without
 credentials and records the immutable Hugging Face commit SHA after checking
-remote identities, Polars range behavior, card rendering, and HTTP byte ranges
+remote identities, direct Polars pushdown, counted Parquet range reads, dataset
+card rendering, and HTTP byte ranges
 for all 40 BigWigs. It records Dataset Viewer readiness separately so hosted
 preview indexing does not block access to the public release.
