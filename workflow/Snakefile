@@ -17,6 +17,7 @@ include: "rules/common.smk"
 include: "rules/inventory.smk"
 include: "rules/parquet_benchmark.smk"
 include: "rules/bigwig.smk"
+include: "rules/release.smk"
 
 
 rule artifacts:
@@ -25,6 +26,7 @@ rule artifacts:
         inventory_targets(),
         parquet_benchmark_targets(),
         bigwig_targets(),
+        release_preflight_targets(),
 
 
 rule all:
@@ -36,6 +38,24 @@ rule publish:
     """Publish validated artifacts from one intentional local process."""
     input:
         rules.artifacts.input,
+        release_preflight_targets(),
+    output:
+        release_publication_report(),
+    log:
+        str(RELEASE_OUTPUT_ROOT / "logs" / "publication.log"),
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards: (
+            release_resource("publish", "mem_mb") if RELEASE_ENABLED else 1024
+        ),
+        runtime=lambda wildcards: (
+            release_resource("publish", "runtime") if RELEASE_ENABLED else 30
+        ),
+        disk_mb=lambda wildcards: (
+            release_resource("publish", "disk_mb") if RELEASE_ENABLED else 1024
+        ),
+    run:
+        run_release_publication(output[0], log[0])
 
 
 rule scf_smoke:

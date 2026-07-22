@@ -124,3 +124,29 @@ bigwig:
       mem_mb: null
       runtime: null
       disk_mb: null
+
+release:
+  # Public publication is an explicit local target. It remains disabled for
+  # hermetic development and must never be submitted through the SCF profile.
+  enabled: false
+  source_root: null
+  bigwig_root: null
+  inventory_manifest: null
+  parquet_selection: null
+  bigwig_validation: null
+  output_root: results/release
+  # Viewer readiness is reported but does not block publication by default.
+  viewer_attempts: 1
+  viewer_retry_seconds: 0
+  viewer_required: false
+  hf_block_size: 4194304
+  capacity_approval: null
+  resources:
+    preflight:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    publish:
+      mem_mb: null
+      runtime: null
+      disk_mb: null

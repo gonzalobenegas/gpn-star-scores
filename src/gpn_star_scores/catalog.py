@@ -28,6 +28,8 @@ class ScoreSetSpec:
 
     name: str
     assembly: str
+    model_id: str
+    model_description: str
 
 
 @dataclass(frozen=True)
@@ -110,14 +112,54 @@ ASSEMBLIES: dict[str, AssemblySpec] = {
 
 
 SCORE_SETS: tuple[ScoreSetSpec, ...] = (
-    ScoreSetSpec("gpn-star-hg38-v100-200m", "hg38"),
-    ScoreSetSpec("gpn-star-hg38-m447-200m", "hg38"),
-    ScoreSetSpec("gpn-star-hg38-p243-200m", "hg38"),
-    ScoreSetSpec("ce11", "ce11"),
-    ScoreSetSpec("dm6", "dm6"),
-    ScoreSetSpec("gg6", "gg6"),
-    ScoreSetSpec("tair10", "tair10"),
-    ScoreSetSpec("mm39", "mm39"),
+    ScoreSetSpec(
+        "gpn-star-hg38-v100-200m",
+        "hg38",
+        "songlab/gpn-star-hg38-v100-200m",
+        "human vertebrate-alignment model (200M parameters)",
+    ),
+    ScoreSetSpec(
+        "gpn-star-hg38-m447-200m",
+        "hg38",
+        "songlab/gpn-star-hg38-m447-200m",
+        "human mammalian-alignment model (200M parameters)",
+    ),
+    ScoreSetSpec(
+        "gpn-star-hg38-p243-200m",
+        "hg38",
+        "songlab/gpn-star-hg38-p243-200m",
+        "human primate-alignment model (200M parameters)",
+    ),
+    ScoreSetSpec(
+        "ce11",
+        "ce11",
+        "songlab/gpn-star-ce11-n135-25m",
+        "C. elegans model (25M parameters)",
+    ),
+    ScoreSetSpec(
+        "dm6",
+        "dm6",
+        "songlab/gpn-star-dm6-i124-85m",
+        "D. melanogaster model (85M parameters)",
+    ),
+    ScoreSetSpec(
+        "gg6",
+        "gg6",
+        "songlab/gpn-star-galGal6-v77-85m",
+        "chicken model (85M parameters)",
+    ),
+    ScoreSetSpec(
+        "tair10",
+        "tair10",
+        "songlab/gpn-star-tair10-b18-25m",
+        "A. thaliana model (25M parameters)",
+    ),
+    ScoreSetSpec(
+        "mm39",
+        "mm39",
+        "songlab/gpn-star-mm39-v35-85m",
+        "mouse model (85M parameters)",
+    ),
 )
 
 SCORE_TYPES = ("entropy", "llr")

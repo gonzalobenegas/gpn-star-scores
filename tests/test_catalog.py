@@ -3,6 +3,7 @@ from gpn_star_scores.catalog import (
     BOX_CURRENT_PARQUET_BYTES,
     BOX_REPORTED_FOLDER_BYTES,
     EXPECTED_SHARD_COUNT,
+    SCORE_SETS,
     expected_shards,
 )
 
@@ -37,3 +38,16 @@ def test_box_folder_and_current_parquet_byte_counts_are_distinct() -> None:
     assert BOX_REPORTED_FOLDER_BYTES == 333_761_247_733
     assert BOX_CURRENT_PARQUET_BYTES == 333_761_235_219
     assert BOX_REPORTED_FOLDER_BYTES - BOX_CURRENT_PARQUET_BYTES == 12_514
+
+
+def test_score_sets_name_the_exact_release_models() -> None:
+    assert {score_set.name: score_set.model_id for score_set in SCORE_SETS} == {
+        "gpn-star-hg38-v100-200m": "songlab/gpn-star-hg38-v100-200m",
+        "gpn-star-hg38-m447-200m": "songlab/gpn-star-hg38-m447-200m",
+        "gpn-star-hg38-p243-200m": "songlab/gpn-star-hg38-p243-200m",
+        "ce11": "songlab/gpn-star-ce11-n135-25m",
+        "dm6": "songlab/gpn-star-dm6-i124-85m",
+        "gg6": "songlab/gpn-star-galGal6-v77-85m",
+        "tair10": "songlab/gpn-star-tair10-b18-25m",
+        "mm39": "songlab/gpn-star-mm39-v35-85m",
+    }
