@@ -19,6 +19,7 @@ include: "rules/parquet_benchmark.smk"
 include: "rules/bigwig.smk"
 include: "rules/release.smk"
 include: "rules/hub.smk"
+include: "rules/qa.smk"
 
 
 rule artifacts:
@@ -93,6 +94,8 @@ rule publish_hub:
         approved_by=lambda wildcards: hub_approval_value("approved_by"),
         approved_at=lambda wildcards: hub_approval_value("approved_at"),
         approval_base=lambda wildcards: hub_approval_value("expected_base_revision"),
+        approval_operation=lambda wildcards: hub_approval_value("operation"),
+        approval_candidate=lambda wildcards: hub_approval_value("candidate_sha256"),
         udc_dir=lambda wildcards: str(HUB_CONFIG.get("udc_cache_root") or ""),
     shell:
         """
@@ -107,9 +110,66 @@ rule publish_hub:
             --approved-by {params.approved_by:q} \
             --approved-at {params.approved_at:q} \
             --approval-expected-base-revision {params.approval_base:q} \
+            --approval-operation {params.approval_operation:q} \
+            --approval-candidate-sha256 {params.approval_candidate:q} \
             --udc-dir {params.udc_dir:q} \
             >{log:q} 2>&1
         """
+
+
+rule publish_dataset_card:
+    """Publish only the generated README with lightweight public checks."""
+    input:
+        metadata=str(HUB_METADATA_ROOT),
+    output:
+        success=hub_card_publication_success_marker(),
+    log:
+        str(HUB_OUTPUT_ROOT / "logs" / "dataset-card-publication.log"),
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards: (
+            hub_resource("publish", "mem_mb") if HUB_ENABLED else 1024
+        ),
+        runtime=lambda wildcards: (
+            hub_resource("publish", "runtime") if HUB_ENABLED else 30
+        ),
+        disk_mb=lambda wildcards: (
+            hub_resource("publish", "disk_mb") if HUB_ENABLED else 1024
+        ),
+    params:
+        report=hub_card_publication_report(),
+        expected_base=lambda wildcards: str(
+            HUB_CONFIG.get("expected_base_revision") or ""
+        ),
+        approval_approved=lambda wildcards: hub_approval_value("approved"),
+        approval_evidence=lambda wildcards: hub_approval_value("evidence_url"),
+        approved_by=lambda wildcards: hub_approval_value("approved_by"),
+        approved_at=lambda wildcards: hub_approval_value("approved_at"),
+        approval_base=lambda wildcards: hub_approval_value("expected_base_revision"),
+        approval_operation=lambda wildcards: hub_approval_value("operation"),
+        approval_candidate=lambda wildcards: hub_approval_value("candidate_sha256"),
+    shell:
+        """
+        {PYTHON_EXECUTABLE:q} -m gpn_star_scores.hub publish-card \
+            --metadata-root {input.metadata:q} \
+            --report {params.report:q} \
+            --success-marker {output.success:q} \
+            --expected-base-revision {params.expected_base:q} \
+            --approval-approved {params.approval_approved:q} \
+            --approval-evidence-url {params.approval_evidence:q} \
+            --approved-by {params.approved_by:q} \
+            --approved-at {params.approved_at:q} \
+            --approval-expected-base-revision {params.approval_base:q} \
+            --approval-operation {params.approval_operation:q} \
+            --approval-candidate-sha256 {params.approval_candidate:q} \
+            >{log:q} 2>&1
+        """
+
+
+rule qa:
+    """Run the opt-in end-to-end release QA and build its release record."""
+    input:
+        qa_targets(),
 
 
 rule scf_smoke:

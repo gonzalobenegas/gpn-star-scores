@@ -1,0 +1,1396 @@
+{
+  "credentials_sent": false,
+  "file_checks": [
+    {
+      "path": "README.md",
+      "sha256": "d696a5472351ae1a338b9abdd392a329819dcdd0dfa7cbf619a7023181cf8986",
+      "size": 11327
+    },
+    {
+      "path": "manifest/ucsc-hub.json",
+      "sha256": "160f27e92b1237351cff05c2dca7aceea8399ab49ab49d145c2e3d91655125e1",
+      "size": 28709
+    },
+    {
+      "path": "ucsc/araTha1/gpnTair10.html",
+      "sha256": "769e16130eac1504f29a56b4cd9698844a2f16bf7f4f8d0a77e9021772fc6dc4",
+      "size": 577
+    },
+    {
+      "path": "ucsc/araTha1/gpnTair10Entropy.html",
+      "sha256": "5ea15e79fa9ba2ac71974a69ff33f735c049a33c460d5ef6d35f289dca49bbd4",
+      "size": 929
+    },
+    {
+      "path": "ucsc/araTha1/gpnTair10Logo.html",
+      "sha256": "960226b7ceb0e43f06590742e46a1d14d613d72799c7ef2627aab981531e23df",
+      "size": 1287
+    },
+    {
+      "path": "ucsc/araTha1/trackDb.txt",
+      "sha256": "1f766b2d00c4d4e67d10938f5e286585015994559870c64cb5536700e1563eb6",
+      "size": 2159
+    },
+    {
+      "path": "ucsc/ce11/gpnCe11.html",
+      "sha256": "3d07417e5d31ff274d3a25b5e548a189848d13208d1906bd9a39c017859b064e",
+      "size": 570
+    },
+    {
+      "path": "ucsc/ce11/gpnCe11Entropy.html",
+      "sha256": "1332b633bb311b9edb0727863d8971e30011a03778072fa632dd6836a9cc7702",
+      "size": 922
+    },
+    {
+      "path": "ucsc/ce11/gpnCe11Logo.html",
+      "sha256": "0201a2ffe7e04017d27ee033bb3deef6b5aeed35da1527e0a7a9303753680d4a",
+      "size": 1280
+    },
+    {
+      "path": "ucsc/ce11/trackDb.txt",
+      "sha256": "3e70f94167fc7eb4db8588cb596ad879094a94ee970d8e686b1d6dd380309bc8",
+      "size": 2107
+    },
+    {
+      "path": "ucsc/description.html",
+      "sha256": "049e6ccdd122281e1d5536332990fc2f73c0dfede7cc06bead13c452cf45f14c",
+      "size": 888
+    },
+    {
+      "path": "ucsc/dm6/gpnDm6.html",
+      "sha256": "b4d7bb41eef9060d3837371ad34e19e5786b708e6373f588778bf390e8bd7933",
+      "size": 571
+    },
+    {
+      "path": "ucsc/dm6/gpnDm6Entropy.html",
+      "sha256": "a7ea8b93f4ef4e2dd92d18b786cb42cedcc6003d1ac94c4ade0ab200877adb9c",
+      "size": 923
+    },
+    {
+      "path": "ucsc/dm6/gpnDm6Logo.html",
+      "sha256": "df3c97f0ecab3d6135e6c79e6c7577d0f98604f83671999f240f71b577d1b802",
+      "size": 1281
+    },
+    {
+      "path": "ucsc/dm6/trackDb.txt",
+      "sha256": "b19fecf67a748d503bb2ddfcb0631fe4a7dcb3ebd275de745e6e259ffe1e17b5",
+      "size": 2081
+    },
+    {
+      "path": "ucsc/galGal6/gpnGg6.html",
+      "sha256": "24f948193ad55f10d9a9d3c759b63e40306856768c0535b8a7981c2dd11f5503",
+      "size": 577
+    },
+    {
+      "path": "ucsc/galGal6/gpnGg6Entropy.html",
+      "sha256": "bf1e03b6a4cc32e3cc3785fd50a42b9ba7949f312e67b097f69349727d9b7f6d",
+      "size": 929
+    },
+    {
+      "path": "ucsc/galGal6/gpnGg6Logo.html",
+      "sha256": "1683d83bd0c32d13a5550202d714f7011935f0266270f024c08e9a31b0f7c7ba",
+      "size": 1287
+    },
+    {
+      "path": "ucsc/galGal6/trackDb.txt",
+      "sha256": "0be8a65cfb6774e791adedd05f213a037a004f01ff993468edd8e873064f9449",
+      "size": 2113
+    },
+    {
+      "path": "ucsc/genomes.txt",
+      "sha256": "810994813744790ef7369c6ceab848b1da99513339675ce6522870b7f5fcc1e5",
+      "size": 245
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38M447200m.html",
+      "sha256": "d5b41e822466c68f3a346f1d1c0922fe79a0237b9e8b77b7a347e0c9bbef0acc",
+      "size": 588
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38M447200mEntropy.html",
+      "sha256": "552f372e36a204b633a0d98de7c200f72db006ba51b93b90d6ef9a3f26668f5a",
+      "size": 940
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38M447200mLogo.html",
+      "sha256": "7ef527f0e97976e86d0b19553cc4375be12d382d3a6efdb477e592695c2721bc",
+      "size": 1298
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38P243200m.html",
+      "sha256": "83659753dde0190a49dc0e1bb16f6d59be55ed6003a3b9120d7972ff835dc30f",
+      "size": 586
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38P243200mEntropy.html",
+      "sha256": "d74e5a0d746eb35095fc4f806868eff7136803586ccf0b351279221c4dafa65f",
+      "size": 938
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38P243200mLogo.html",
+      "sha256": "18f408c8be6d47d0903331a5c0c3dcd338ac433437315060a7af137d27161351",
+      "size": 1296
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38V100200m.html",
+      "sha256": "1640e05b6b51a4b9a050c6d2804652390940c3f4269364a586c6119ba51599f8",
+      "size": 589
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38V100200mEntropy.html",
+      "sha256": "1d92fac230f6da2921624ade0a7b44a4038e494914c6052990bf8fa6d416adec",
+      "size": 941
+    },
+    {
+      "path": "ucsc/hg38/gpnStarHg38V100200mLogo.html",
+      "sha256": "5e27a78e7b352b8b5a0ad3f004a4e18eeebce49f81b1adbdd100d9a2f4f39c97",
+      "size": 1299
+    },
+    {
+      "path": "ucsc/hg38/trackDb.txt",
+      "sha256": "4cf47a97a9ad7527b1617f2e9db83833e3b4e8756f960730bc3ee91919b672e4",
+      "size": 7076
+    },
+    {
+      "path": "ucsc/hub.txt",
+      "sha256": "7864ffba111dd5cdd017a38ee77d05233b43a93b50ff03d0927a60c2a8183f4d",
+      "size": 160
+    },
+    {
+      "path": "ucsc/mm39/gpnMm39.html",
+      "sha256": "09a09e840aa4279c6a52ecc078820e00f742f4f8b97f58a7930711dff4d0f822",
+      "size": 563
+    },
+    {
+      "path": "ucsc/mm39/gpnMm39Entropy.html",
+      "sha256": "b81dbd196fdf1f58062fa3d1e6b26507da48c5f79504e0157ab8f09a825d5246",
+      "size": 915
+    },
+    {
+      "path": "ucsc/mm39/gpnMm39Logo.html",
+      "sha256": "19aa98760f5fe7286c234a0fb0397b9cf2af13c001018c4bf0ce42a6b3af8b76",
+      "size": 1273
+    },
+    {
+      "path": "ucsc/mm39/trackDb.txt",
+      "sha256": "bbd1faf747111721797f9f9cce144a6004f663999475fcbb61a654c52767181c",
+      "size": 2107
+    }
+  ],
+  "file_count": 35,
+  "hub_url": "https://huggingface.co/datasets/songlab/gpn-star-scores/resolve/340a04b4ccc95d68ad3be4fc3b08d725f29842e4/ucsc/hub.txt",
+  "hub_validation": {
+    "artifact_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+    "assembly_count": 6,
+    "chromosome_checks": [
+      {
+        "chromosome_count": 6,
+        "names_match": true,
+        "score_set": "ce11",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 6,
+        "names_match": true,
+        "score_set": "ce11",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 6,
+        "names_match": true,
+        "score_set": "ce11",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 6,
+        "names_match": true,
+        "score_set": "ce11",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 6,
+        "names_match": true,
+        "score_set": "ce11",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 7,
+        "names_match": true,
+        "score_set": "dm6",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 7,
+        "names_match": true,
+        "score_set": "dm6",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 7,
+        "names_match": true,
+        "score_set": "dm6",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 7,
+        "names_match": true,
+        "score_set": "dm6",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 7,
+        "names_match": true,
+        "score_set": "dm6",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 34,
+        "names_match": true,
+        "score_set": "gg6",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 34,
+        "names_match": true,
+        "score_set": "gg6",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 34,
+        "names_match": true,
+        "score_set": "gg6",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 34,
+        "names_match": true,
+        "score_set": "gg6",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 34,
+        "names_match": true,
+        "score_set": "gg6",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-m447-200m",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-m447-200m",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-m447-200m",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-m447-200m",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-m447-200m",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-p243-200m",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-p243-200m",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-p243-200m",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-p243-200m",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-p243-200m",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-v100-200m",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-v100-200m",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-v100-200m",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-v100-200m",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 24,
+        "names_match": true,
+        "score_set": "gpn-star-hg38-v100-200m",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 21,
+        "names_match": true,
+        "score_set": "mm39",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 21,
+        "names_match": true,
+        "score_set": "mm39",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 21,
+        "names_match": true,
+        "score_set": "mm39",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 21,
+        "names_match": true,
+        "score_set": "mm39",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 21,
+        "names_match": true,
+        "score_set": "mm39",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      },
+      {
+        "chromosome_count": 5,
+        "names_match": true,
+        "score_set": "tair10",
+        "sizes_match_score_set": true,
+        "track": "A"
+      },
+      {
+        "chromosome_count": 5,
+        "names_match": true,
+        "score_set": "tair10",
+        "sizes_match_score_set": true,
+        "track": "C"
+      },
+      {
+        "chromosome_count": 5,
+        "names_match": true,
+        "score_set": "tair10",
+        "sizes_match_score_set": true,
+        "track": "G"
+      },
+      {
+        "chromosome_count": 5,
+        "names_match": true,
+        "score_set": "tair10",
+        "sizes_match_score_set": true,
+        "track": "T"
+      },
+      {
+        "chromosome_count": 5,
+        "names_match": true,
+        "score_set": "tair10",
+        "sizes_match_score_set": true,
+        "track": "entropy"
+      }
+    ],
+    "http_range_checks": [
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/318476737",
+        "path": "bigwig/ce11/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/317715521",
+        "path": "bigwig/ce11/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/317087187",
+        "path": "bigwig/ce11/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/321790168",
+        "path": "bigwig/ce11/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/359573908",
+        "path": "bigwig/ce11/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/437562936",
+        "path": "bigwig/dm6/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/426041312",
+        "path": "bigwig/dm6/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/426553810",
+        "path": "bigwig/dm6/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/437254806",
+        "path": "bigwig/dm6/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/485419641",
+        "path": "bigwig/dm6/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/3030771833",
+        "path": "bigwig/gg6/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/2968923783",
+        "path": "bigwig/gg6/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/2969862722",
+        "path": "bigwig/gg6/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/3037241668",
+        "path": "bigwig/gg6/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/3582383710",
+        "path": "bigwig/gg6/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8404455701",
+        "path": "bigwig/gpn-star-hg38-m447-200m/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8213327305",
+        "path": "bigwig/gpn-star-hg38-m447-200m/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8231401501",
+        "path": "bigwig/gpn-star-hg38-m447-200m/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8396085451",
+        "path": "bigwig/gpn-star-hg38-m447-200m/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/10661247977",
+        "path": "bigwig/gpn-star-hg38-m447-200m/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8121381543",
+        "path": "bigwig/gpn-star-hg38-p243-200m/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/7963566849",
+        "path": "bigwig/gpn-star-hg38-p243-200m/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/7984617636",
+        "path": "bigwig/gpn-star-hg38-p243-200m/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8115723650",
+        "path": "bigwig/gpn-star-hg38-p243-200m/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/10372109541",
+        "path": "bigwig/gpn-star-hg38-p243-200m/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8375839576",
+        "path": "bigwig/gpn-star-hg38-v100-200m/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8073559597",
+        "path": "bigwig/gpn-star-hg38-v100-200m/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8060221355",
+        "path": "bigwig/gpn-star-hg38-v100-200m/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8394788567",
+        "path": "bigwig/gpn-star-hg38-v100-200m/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/9897991293",
+        "path": "bigwig/gpn-star-hg38-v100-200m/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/7894331393",
+        "path": "bigwig/mm39/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/7580753302",
+        "path": "bigwig/mm39/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/7567781947",
+        "path": "bigwig/mm39/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/7917281649",
+        "path": "bigwig/mm39/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/8884865693",
+        "path": "bigwig/mm39/entropy.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/362243601",
+        "path": "bigwig/tair10/A.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/346859928",
+        "path": "bigwig/tair10/C.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/347541680",
+        "path": "bigwig/tair10/G.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/364488987",
+        "path": "bigwig/tair10/T.bw",
+        "status": 206
+      },
+      {
+        "bytes_read": 64,
+        "content_range": "bytes 0-63/415112438",
+        "path": "bigwig/tair10/entropy.bw",
+        "status": 206
+      }
+    ],
+    "http_range_count": 40,
+    "hub_check": {
+      "check_settings": true,
+      "passed": true,
+      "settings_spec": "https://genome.ucsc.edu/goldenPath/help/trackDb/trackDbHub.html",
+      "stderr": "",
+      "stdout": ""
+    },
+    "hub_manifest_sha256": "160f27e92b1237351cff05c2dca7aceea8399ab49ab49d145c2e3d91655125e1",
+    "hub_target": "https://huggingface.co/datasets/songlab/gpn-star-scores/resolve/340a04b4ccc95d68ad3be4fc3b08d725f29842e4/ucsc/hub.txt",
+    "report_version": 1,
+    "repository": "songlab/gpn-star-scores",
+    "representative_checks": [
+      {
+        "assembly": "hg38",
+        "chrom": "chr1",
+        "end": 10065,
+        "score_set": "gpn-star-hg38-v100-200m",
+        "start": 10064,
+        "track_values": {
+          "A": 0.089,
+          "C": 0.107,
+          "G": 0.008,
+          "T": 0.077,
+          "entropy": 0.819
+        },
+        "ucsc_assembly": "hg38",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 10565,
+          "start": 9564,
+          "values": {
+            "A": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.08677,
+              0.08565,
+              0.0994475,
+              0.0720425,
+              0.0336696
+            ],
+            "C": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.12862,
+              0.123345,
+              0.158085,
+              0.09787,
+              0.050716
+            ],
+            "G": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.0206175,
+              0.0206425,
+              0.0241425,
+              0.0247975,
+              0.0437896
+            ],
+            "T": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.05667,
+              0.053475,
+              0.0548975,
+              0.0436475,
+              0.0322308
+            ],
+            "entropy": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              1.01398,
+              1.02276,
+              0.954858,
+              1.06856,
+              1.19733
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "hg38",
+        "chrom": "chr1",
+        "end": 10129,
+        "score_set": "gpn-star-hg38-m447-200m",
+        "start": 10128,
+        "track_values": {
+          "A": 0.14,
+          "C": 0.019,
+          "G": 0.059,
+          "T": 0.063,
+          "entropy": 1.566
+        },
+        "ucsc_assembly": "hg38",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 10629,
+          "start": 9628,
+          "values": {
+            "A": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.138693,
+              0.152248,
+              0.119052,
+              0.0675775,
+              0.0658181
+            ],
+            "C": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.157275,
+              0.137945,
+              0.15753,
+              0.16067,
+              0.172811
+            ],
+            "G": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.0456675,
+              0.0454475,
+              0.04889,
+              0.094315,
+              0.202348
+            ],
+            "T": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.117203,
+              0.101733,
+              0.0972,
+              0.065185,
+              0.0558843
+            ],
+            "entropy": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              1.47526,
+              1.40995,
+              1.4505,
+              1.46616,
+              1.39959
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "hg38",
+        "chrom": "chr1",
+        "end": 10129,
+        "score_set": "gpn-star-hg38-p243-200m",
+        "start": 10128,
+        "track_values": {
+          "A": 0.154,
+          "C": 0.021,
+          "G": 0.061,
+          "T": 0.063,
+          "entropy": 1.444
+        },
+        "ucsc_assembly": "hg38",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 10629,
+          "start": 9628,
+          "values": {
+            "A": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.17873,
+              0.17492,
+              0.135435,
+              0.076725,
+              0.0608837
+            ],
+            "C": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.19956,
+              0.21319,
+              0.210015,
+              0.143225,
+              0.149291
+            ],
+            "G": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.0428325,
+              0.0430425,
+              0.0469975,
+              0.0723975,
+              0.155911
+            ],
+            "T": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.11794,
+              0.1014,
+              0.0984475,
+              0.0690125,
+              0.0540563
+            ],
+            "entropy": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              1.35482,
+              1.28176,
+              1.34053,
+              1.41878,
+              1.37411
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "ce11",
+        "chrom": "chrI",
+        "end": 65,
+        "score_set": "ce11",
+        "start": 64,
+        "track_values": {
+          "A": 0.02,
+          "C": 0.067,
+          "G": 0.025,
+          "T": 0.05,
+          "entropy": 1.206
+        },
+        "ucsc_assembly": "ce11",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 565,
+          "start": 0,
+          "values": {
+            "A": [
+              null,
+              0.0323393,
+              0.032375,
+              0.0323092,
+              0.0320893,
+              0.0322281,
+              0.0327299,
+              0.0301952,
+              0.0322232,
+              0.0307303
+            ],
+            "C": [
+              null,
+              0.0798189,
+              0.0807321,
+              0.0804386,
+              0.0790804,
+              0.0790581,
+              0.0773516,
+              0.0616732,
+              0.0437545,
+              0.0442336
+            ],
+            "G": [
+              null,
+              0.0435319,
+              0.0437232,
+              0.0436129,
+              0.0431786,
+              0.0432993,
+              0.0434342,
+              0.0385241,
+              0.0420938,
+              0.0460406
+            ],
+            "T": [
+              null,
+              0.0390702,
+              0.0394911,
+              0.0393849,
+              0.0388482,
+              0.0387632,
+              0.038702,
+              0.042216,
+              0.0362321,
+              0.0303816
+            ],
+            "entropy": [
+              null,
+              1.27698,
+              1.27784,
+              1.27747,
+              1.27592,
+              1.27613,
+              1.2774,
+              1.31367,
+              1.35702,
+              1.30962
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "dm6",
+        "chrom": "chr2L",
+        "end": 65,
+        "score_set": "dm6",
+        "start": 64,
+        "track_values": {
+          "A": 0.017,
+          "C": 0.038,
+          "G": 0.023,
+          "T": 0.054,
+          "entropy": 0.809
+        },
+        "ucsc_assembly": "dm6",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 565,
+          "start": 0,
+          "values": {
+            "A": [
+              null,
+              0.175207,
+              0.195239,
+              0.168504,
+              0.0888772,
+              0.201856,
+              0.0626607,
+              0.0623607,
+              0.086308,
+              0.136299
+            ],
+            "C": [
+              null,
+              0.0738278,
+              0.132296,
+              0.095057,
+              0.0969487,
+              0.113039,
+              0.0462422,
+              0.0544507,
+              0.0798125,
+              0.07467
+            ],
+            "G": [
+              null,
+              0.0545434,
+              0.100218,
+              0.095534,
+              0.0668996,
+              0.122701,
+              0.0585167,
+              0.0476184,
+              0.106929,
+              0.0628268
+            ],
+            "T": [
+              null,
+              0.113042,
+              0.15098,
+              0.156188,
+              0.101598,
+              0.149214,
+              0.0581429,
+              0.0553805,
+              0.0568571,
+              0.128723
+            ],
+            "entropy": [
+              null,
+              0.673927,
+              0.52866,
+              0.64389,
+              1.08304,
+              0.509382,
+              1.41292,
+              1.41256,
+              0.963366,
+              0.694921
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "gg6",
+        "chrom": "chr1",
+        "end": 3,
+        "score_set": "gg6",
+        "start": 2,
+        "track_values": {
+          "A": 0.004,
+          "C": 0.005,
+          "G": 0.007,
+          "T": 0.007,
+          "entropy": 1.077
+        },
+        "ucsc_assembly": "galGal6",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 503,
+          "start": 0,
+          "values": {
+            "A": [
+              0.0185208,
+              0.023035,
+              0.02108,
+              0.0182721,
+              0.0221488,
+              0.0196375,
+              0.0205282,
+              0.0238025,
+              0.022785,
+              0.0210294
+            ],
+            "C": [
+              0.0611458,
+              0.0698725,
+              0.0607525,
+              0.0570466,
+              0.0681813,
+              0.06167,
+              0.0594939,
+              0.0666725,
+              0.05566,
+              0.0600306
+            ],
+            "G": [
+              0.0211667,
+              0.0248475,
+              0.0230275,
+              0.0209914,
+              0.0230788,
+              0.0217037,
+              0.0217145,
+              0.0248825,
+              0.02453,
+              0.0230711
+            ],
+            "T": [
+              0.0333958,
+              0.03698,
+              0.03554,
+              0.0337868,
+              0.034155,
+              0.03408,
+              0.0348113,
+              0.039215,
+              0.037185,
+              0.0341091
+            ],
+            "entropy": [
+              1.1045,
+              1.12521,
+              1.12708,
+              1.12011,
+              1.10889,
+              1.11073,
+              1.12035,
+              1.13367,
+              1.14602,
+              1.12466
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "tair10",
+        "chrom": "chr1",
+        "end": 129,
+        "score_set": "tair10",
+        "start": 128,
+        "track_values": {
+          "A": 0.001,
+          "C": 0.001,
+          "G": 0.001,
+          "T": 0.001,
+          "entropy": 1.064
+        },
+        "ucsc_assembly": "GCF_000001735.4",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 629,
+          "start": 0,
+          "values": {
+            "A": [
+              null,
+              null,
+              0.0345375,
+              0.0193125,
+              0.0205962,
+              0.0203442,
+              0.0572986,
+              0.035753,
+              0.0212827,
+              0.0753671
+            ],
+            "C": [
+              null,
+              null,
+              0.0517042,
+              0.0373423,
+              0.0171379,
+              0.0293056,
+              0.101194,
+              0.0587421,
+              0.0390317,
+              0.0614266
+            ],
+            "G": [
+              null,
+              null,
+              0.0300917,
+              0.0302768,
+              0.0204375,
+              0.0481458,
+              0.107314,
+              0.0613343,
+              0.0388065,
+              0.0620149
+            ],
+            "T": [
+              null,
+              null,
+              0.0273833,
+              0.0278343,
+              0.0174772,
+              0.0433244,
+              0.159642,
+              0.0334425,
+              0.02725,
+              0.0961141
+            ],
+            "entropy": [
+              null,
+              null,
+              1.15507,
+              1.17397,
+              1.1692,
+              1.05371,
+              0.784142,
+              0.960792,
+              1.0594,
+              0.858925
+            ]
+          }
+        }
+      },
+      {
+        "assembly": "mm39",
+        "chrom": "chr1",
+        "end": 3050003,
+        "score_set": "mm39",
+        "start": 3050002,
+        "track_values": {
+          "A": 0.122,
+          "C": 0.038,
+          "G": 0.502,
+          "T": 0.05,
+          "entropy": 0.469
+        },
+        "ucsc_assembly": "mm39",
+        "zero_based_half_open": true,
+        "zoom_region": {
+          "bins": 10,
+          "end": 3050503,
+          "start": 3049502,
+          "values": {
+            "A": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.291778,
+              0.0679525,
+              0.253458,
+              0.0719425,
+              0.0685829
+            ],
+            "C": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.127112,
+              0.0561275,
+              0.214287,
+              0.0767225,
+              0.0439814
+            ],
+            "G": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.159303,
+              0.0493225,
+              0.117875,
+              0.04139,
+              0.051612
+            ],
+            "T": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.189205,
+              0.034155,
+              0.267745,
+              0.074195,
+              0.0594239
+            ],
+            "entropy": [
+              null,
+              null,
+              null,
+              null,
+              null,
+              0.523613,
+              0.955037,
+              0.449498,
+              1.049,
+              1.07839
+            ]
+          }
+        }
+      }
+    ],
+    "score_set_count": 8,
+    "track_count": 40,
+    "valid": true
+  },
+  "public": true,
+  "report_version": 1,
+  "repository": "songlab/gpn-star-scores",
+  "revision": "340a04b4ccc95d68ad3be4fc3b08d725f29842e4",
+  "valid": true
+}

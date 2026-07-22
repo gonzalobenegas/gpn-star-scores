@@ -136,3 +136,19 @@ validation, and base/zoom browser rendering for all eight model groups. The
 public hub is available from the dataset's stable `resolve/main/ucsc/hub.txt`
 entry URL, while all 40 BigWigs remain pinned to the immutable issue #4
 artifact revision.
+
+## End-to-end release QA
+
+Issue #2's opt-in [`qa` workflow](docs/end-to-end-qa.md) repeats anonymous
+public artifact, Polars, BigWig, Dataset Viewer, and UCSC hub checks and
+reconciles them with the complete 290-shard inventory, 40-track audit, locked
+environment, SCF profile, and Slurm efficiency evidence. It writes an immutable
+release record while keeping the `v1.0.0` tag behind a separate exact-commit
+author-approval gate. The workflow never creates or pushes a tag on its own.
+The committed
+[`reports/v1.0.0-qa-preflight`](reports/v1.0.0-qa-preflight/README.md)
+records the passing anonymous artifact, Viewer, Polars, and UCSC checks plus the
+published bounded-join metadata correction. Routine generated dataset-card
+updates use the separate approval-gated `publish_dataset_card` target, which
+uploads only `README.md` and performs no BigWig checks; the full `publish_hub`
+validation remains reserved for hub or track changes.

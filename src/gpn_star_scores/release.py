@@ -497,16 +497,25 @@ multi_chrom = (
 ### Join a user variant table
 
 ```python
+variant_chrom = "22"
+variant_start = 20_000_001
+variant_end = 20_000_001
 variants = pl.DataFrame(
     {{
-        "chrom": ["22"],
-        "pos": [20_000_001],
+        "chrom": [variant_chrom],
+        "pos": [variant_start],
         "ref": ["A"],
         "alt": ["G"],
     }}
 ).lazy()
-llr = pl.scan_parquet(
-    f"{{root}}/gpn-star-hg38-p243-200m/llr/*.parquet"
+llr = (
+    pl.scan_parquet(
+        f"{{root}}/gpn-star-hg38-p243-200m/llr/llr_chr{{variant_chrom}}.parquet"
+    )
+    .filter(
+        (pl.col("chrom") == variant_chrom)
+        & pl.col("pos").is_between(variant_start, variant_end)
+    )
 )
 annotated = variants.join(
     llr,
@@ -514,6 +523,11 @@ annotated = variants.join(
     how="left",
 ).collect()
 ```
+
+Partitioning the scan by chromosome and bounding the position interval avoids
+scanning every genome-wide LLR shard for a small variant table. For larger
+tables, apply the same pattern to each chromosome partition before
+concatenating the annotated results.
 
 Lazy scans preserve predicate and projection pushdown. The release validation
 also measures representative public `hf://` interval reads and requires fewer

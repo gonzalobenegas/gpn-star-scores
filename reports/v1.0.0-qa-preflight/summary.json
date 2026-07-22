@@ -1,0 +1,133 @@
+{
+  "report_version": 1,
+  "date": "2026-07-22",
+  "status": "blocked_on_exact_tag_identifiers_and_approval",
+  "valid_preflight": true,
+  "publication_performed": true,
+  "tag_created": false,
+  "identifiers": {
+    "repository": "songlab/gpn-star-scores",
+    "release_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+    "current_hub_revision": "340a04b4ccc95d68ad3be4fc3b08d725f29842e4",
+    "workflow_commit": null,
+    "source_inventory_sha256": "de1b00e6099574dd2f74a0702b8870332f0c7dc6b2fffe9b6648398c1bef52e4",
+    "release_manifest_sha256": "94c3298ead5c4d9044548a63d25791f03c45bf6b7254a00d74a7ef6867ce2c94",
+    "parquet_layout_sha256": "e64c70a19716c6188b0a42127e865c6b35d980e9e8e24ec38895e5ae5a38803a",
+    "bigwig_validation_sha256": "f177210ddabe3a7e7423a93b3835175d191b9bee5960f4107719c0380c2242b6",
+    "hub_manifest_sha256": "160f27e92b1237351cff05c2dca7aceea8399ab49ab49d145c2e3d91655125e1",
+    "uv_lock_sha256": "99e007d0e082b4dd70911a969def3f303ca455a4a6fc2b108b18cce98429d6ee",
+    "scf_profile_sha256": "5a6b58c065f17f16c6a596f9f957204954fa46076e8e2526fb5e3569e388037a"
+  },
+  "source_reconciliation": {
+    "valid": true,
+    "parquet_file_count": 290,
+    "parquet_bytes": 333761235219,
+    "parquet_rows": 51402120888,
+    "entropy_schema_count": 145,
+    "llr_schema_count": 145,
+    "reference_count": 6,
+    "bigwig_file_count": 40,
+    "bigwig_bytes": 190384237902,
+    "bigwig_sample_check_count": 742400,
+    "bigwig_gap_check_count": 680
+  },
+  "anonymous_public_release": {
+    "valid": true,
+    "credentials_sent": false,
+    "checksum_file_count": 330,
+    "published_artifact_file_count": 330,
+    "bigwig_range_count": 40,
+    "parquet_query_count": 2,
+    "dataset_card_rendered": true,
+    "viewer_ready": true,
+    "viewer_config_count": 16,
+    "viewer_split_count": 16,
+    "viewer_pending_count": 0,
+    "viewer_failed_count": 0,
+    "viewer_preview_supported": true,
+    "viewer_search_supported": true,
+    "viewer_filter_supported": true,
+    "viewer_statistics_supported": false,
+    "report_sha256": "9364f463517733ae6e72076f398585d6a88f2b6061af60be578c5cd660ce1a93"
+  },
+  "dataset_card_examples": {
+    "valid_corrected_candidate": true,
+    "credentials_sent": false,
+    "checks": [
+      {
+        "name": "interval_filter_projection",
+        "rows": 1001
+      },
+      {
+        "name": "projected_score_scan",
+        "rows": 100271839
+      },
+      {
+        "name": "multi_chromosome_scan",
+        "rows": 140963613
+      },
+      {
+        "name": "variant_join",
+        "rows": 1
+      }
+    ],
+    "previous_public_join_bounded": false,
+    "previous_public_join_right_scan_shards": 24,
+    "previous_public_join_estimated_rows": 16592702040,
+    "current_public_join_bounded": true,
+    "candidate_join_bounded_by_chromosome_and_position": true,
+    "metadata_update_required": false,
+    "published_revision": "340a04b4ccc95d68ad3be4fc3b08d725f29842e4"
+  },
+  "anonymous_public_hub": {
+    "valid": true,
+    "credentials_sent": false,
+    "metadata_file_count": 35,
+    "hub_check_passed": true,
+    "track_count": 40,
+    "http_range_count": 40,
+    "chromosome_check_count": 40,
+    "representative_check_count": 8,
+    "manual_browser_score_set_count": 8,
+    "report_sha256": "0dd484cad702fbf6795453007d7e04cc463ea5594ea89017349a7053e655ca10"
+  },
+  "resource_measurements": {
+    "routine_dataset_card_validation": {
+      "wall_seconds": 0.92,
+      "checked_files": 2,
+      "bigwig_checks": 0
+    },
+    "public_release_qa": {
+      "wall_seconds": 61.87,
+      "peak_rss_kib": 11409068,
+      "requested_mem_mb": 17408,
+      "requested_runtime_minutes": 30,
+      "requested_disk_mb": 1024
+    },
+    "hub_cold_cache_baseline": {
+      "source": "reports/ucsc-track-hub-preflight/summary.json",
+      "wall_seconds": 426.27,
+      "peak_rss_kib": 118892,
+      "requested_mem_mb": 1024,
+      "requested_runtime_minutes": 15,
+      "requested_disk_mb": 1024
+    }
+  },
+  "evidence": {
+    "scf_smoke_sha256": "fe58c72b944f74431bf7de3690ab2a9282c16457eebf600f5becbac89c0137d9",
+    "bigwig_production_sha256": "84a033a1cc59a7c24b4a8e4d456a78b0d2e11f90e538caaf09ed3abef0a85575",
+    "hub_production_sha256": "ea36b3bb7e3c6db338247cee0ed8a18d2c7ebf41d4b3fce16bf2fad212c79e05"
+  },
+  "waivers": [
+    {
+      "id": "hugging-face-numeric-capacity",
+      "evidence_url": "https://github.com/gonzalobenegas/gpn-star-scores/issues/4"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "release-tag-approval",
+      "description": "A GPN-Star author must approve the exact workflow commit, public revisions, and v1.0.0 tag on issue #2."
+    }
+  ]
+}
