@@ -1,0 +1,37 @@
+{
+  "report_version": 1,
+  "release_manifest_sha256": "94c3298ead5c4d9044548a63d25791f03c45bf6b7254a00d74a7ef6867ce2c94",
+  "publication": {
+    "artifact_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+    "base_revision": "2cb55ca6ceb4bddbe4314d2edd0fe370b200fde8",
+    "public_revision": "340a04b4ccc95d68ad3be4fc3b08d725f29842e4",
+    "public_validation_valid": true,
+    "credentials_sent_during_validation": false,
+    "file_count": 35,
+    "submitted_file_count": 35,
+    "materially_changed_files": [
+      "README.md"
+    ],
+    "hub_manifest_sha256": "160f27e92b1237351cff05c2dca7aceea8399ab49ab49d145c2e3d91655125e1",
+    "dataset_card_sha256": "d696a5472351ae1a338b9abdd392a329819dcdd0dfa7cbf619a7023181cf8986",
+    "public_validation_report_sha256": "0dd484cad702fbf6795453007d7e04cc463ea5594ea89017349a7053e655ca10",
+    "publisher_report_sha256": "30103f90ca30558765ebe56370e55834af5f6b378ad8267be1f301b5adff0864",
+    "single_commit": true,
+    "approval_issue": "https://github.com/gonzalobenegas/gpn-star-scores/issues/2"
+  },
+  "manual_browser_validation": {
+    "status": "passed",
+    "failed": [],
+    "passed_base_and_zoom": [
+      "gpn-star-hg38-v100-200m",
+      "gpn-star-hg38-m447-200m",
+      "gpn-star-hg38-p243-200m",
+      "ce11",
+      "dm6",
+      "gg6",
+      "tair10",
+      "mm39"
+    ],
+    "source": "reports/ucsc-track-hub-preflight/summary.json"
+  }
+}

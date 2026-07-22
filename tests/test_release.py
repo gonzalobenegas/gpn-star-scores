@@ -179,6 +179,9 @@ def test_release_metadata_has_exact_configs_models_and_checksums(
     assert "abs_llr_calibrated` is an independently supplied" in readme
     assert "pl.scan_parquet" in readme
     assert "variants.join" in readme
+    assert 'variant_chrom = "22"' in readme
+    assert "/llr/llr_chr{variant_chrom}.parquet" in readme
+    assert 'pl.col("pos").is_between(variant_start, variant_end)' in readme
     assert "10.1101/2025.09.21.677619" in readme
     assert TRACK_HUB_URL in readme
 

@@ -13,13 +13,18 @@ from gpn_star_scores.catalog import ASSEMBLIES, SCORE_SETS
 from gpn_star_scores.hub import (
     HUB_APPROVAL_ISSUE,
     HUB_ASSEMBLY_ORDER,
+    HUB_QA_APPROVAL_ISSUE,
     HUB_TRACK_DB_DIRECTORY_ORDER,
     NUCLEOTIDE_COLORS,
     browser_launch_links,
     build_track_hub,
     hub_database_name,
+    publication_candidate_sha256,
+    publish_dataset_card,
     publish_track_hub,
+    validate_existing_dataset_card_publication,
     validate_existing_track_hub_publication,
+    validate_public_dataset_card,
     validate_public_track_hub,
     validate_track_hub,
 )
@@ -100,13 +105,24 @@ def _write_validation_report(metadata: Path, path: Path) -> None:
     )
 
 
-def _publication_approval() -> dict[str, object]:
+def _publication_approval(
+    metadata: Path,
+    evidence_url: str = HUB_APPROVAL_ISSUE,
+    operation: str = "publish_hub",
+) -> dict[str, object]:
+    candidate = (
+        publication_candidate_sha256(metadata)
+        if operation == "publish_hub"
+        else sha256_file(metadata / "README.md")
+    )
     return {
         "approved": True,
-        "evidence_url": HUB_APPROVAL_ISSUE,
+        "evidence_url": evidence_url,
         "approved_by": "author",
         "approved_at": "2026-07-22",
         "expected_base_revision": ARTIFACT_REVISION,
+        "operation": operation,
+        "candidate_sha256": candidate,
     }
 
 
@@ -138,7 +154,7 @@ def _write_pending_publication_report(metadata: Path, path: Path) -> None:
                 "single_commit": True,
                 "single_process": True,
                 "slurm_job_id": None,
-                "publication_approval": _publication_approval(),
+                "publication_approval": _publication_approval(metadata),
                 "published_files": [
                     item.relative_to(metadata).as_posix() for item in publication_files
                 ],
@@ -441,6 +457,75 @@ def test_public_validation_checks_published_files_and_remote_hub(
     assert report["hub_validation"]["hub_target"].endswith("/ucsc/hub.txt")
 
 
+def test_public_dataset_card_validation_skips_bigwigs(tmp_path: Path) -> None:
+    metadata = _build_metadata(tmp_path)
+
+    def opener(target: str, **kwargs: object) -> _FakeResponse:
+        marker = f"/resolve/{ARTIFACT_REVISION}/"
+        if marker in target:
+            relative_path = target.split(marker, maxsplit=1)[1]
+            return _FakeResponse((metadata / relative_path).read_bytes())
+        return _FakeResponse(
+            f"<html>{REPOSITORY_ID} GPN-Star genome-wide scores</html>".encode()
+        )
+
+    report = validate_public_dataset_card(
+        metadata,
+        revision=ARTIFACT_REVISION,
+        api=_FakeApi(),
+        opener=opener,
+    )
+
+    assert report["valid"] is True
+    assert report["bigwig_checks_performed"] == 0
+    assert [item["path"] for item in report["file_checks"]] == [
+        "README.md",
+        "manifest/ucsc-hub.json",
+    ]
+
+
+def test_dataset_card_publication_commits_only_readme(tmp_path: Path) -> None:
+    metadata = _build_metadata(tmp_path)
+    api = _FakeApi()
+    report = tmp_path / "dataset-card-publication.json"
+    success = tmp_path / "dataset-card-publication.complete"
+
+    def opener(target: str, **kwargs: object) -> _FakeResponse:
+        assert target.endswith("/manifest/ucsc-hub.json")
+        return _FakeResponse((metadata / "manifest" / "ucsc-hub.json").read_bytes())
+
+    def validator(*args: object, **kwargs: object) -> dict[str, object]:
+        return {
+            "valid": True,
+            "repository": REPOSITORY_ID,
+            "revision": "b" * 40,
+            "credentials_sent": False,
+            "bigwig_checks_performed": 0,
+        }
+
+    publish_dataset_card(
+        metadata,
+        report,
+        expected_base_revision=ARTIFACT_REVISION,
+        publication_approval=_publication_approval(
+            metadata,
+            evidence_url=HUB_QA_APPROVAL_ISSUE,
+            operation="publish_dataset_card",
+        ),
+        success_marker_path=success,
+        api=api,
+        opener=opener,
+        validator=validator,
+    )
+
+    assert api.commit_kwargs is not None
+    assert api.commit_kwargs["parent_commit"] == ARTIFACT_REVISION
+    operations = api.commit_kwargs["operations"]
+    assert [operation.path_in_repo for operation in operations] == ["README.md"]
+    assert json.loads(report.read_text())["status"] == "validated"
+    assert success.read_text() == f"{'b' * 40}\n"
+
+
 def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
     metadata = _build_metadata(tmp_path)
     validation = tmp_path / "validation.json"
@@ -454,12 +539,13 @@ def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
 
     report = tmp_path / "publication.json"
     success_marker = tmp_path / "publication.complete"
+    approval = _publication_approval(metadata)
     publish_track_hub(
         metadata,
         validation,
         report,
         expected_base_revision=ARTIFACT_REVISION,
-        publication_approval=_publication_approval(),
+        publication_approval=approval,
         udc_dir=tmp_path / "udc",
         success_marker_path=success_marker,
         api=api,
@@ -484,6 +570,107 @@ def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
     assert success_marker.read_text() == f"{'b' * 40}\n"
 
 
+def test_readme_approval_cannot_publish_the_full_hub(tmp_path: Path) -> None:
+    metadata = _build_metadata(tmp_path)
+    validation = tmp_path / "validation.json"
+    _write_validation_report(metadata, validation)
+
+    with pytest.raises(ValueError, match="incomplete or mismatched"):
+        publish_track_hub(
+            metadata,
+            validation,
+            tmp_path / "publication.json",
+            expected_base_revision=ARTIFACT_REVISION,
+            publication_approval=_publication_approval(
+                metadata,
+                evidence_url=HUB_QA_APPROVAL_ISSUE,
+                operation="publish_dataset_card",
+            ),
+            udc_dir=tmp_path / "udc",
+            api=_FakeApi(),
+        )
+
+
+def test_full_hub_approval_rejects_post_approval_readme_change(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path)
+    validation = tmp_path / "validation.json"
+    _write_validation_report(metadata, validation)
+    approval = _publication_approval(metadata)
+    with (metadata / "README.md").open("a", encoding="utf-8") as handle:
+        handle.write("\npost-approval change\n")
+
+    with pytest.raises(ValueError, match="incomplete or mismatched"):
+        publish_track_hub(
+            metadata,
+            validation,
+            tmp_path / "publication.json",
+            expected_base_revision=ARTIFACT_REVISION,
+            publication_approval=approval,
+            udc_dir=tmp_path / "udc",
+            api=_FakeApi(),
+        )
+
+
+def test_dataset_card_publication_recovers_without_second_commit(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path)
+    approval = _publication_approval(
+        metadata,
+        evidence_url=HUB_QA_APPROVAL_ISSUE,
+        operation="publish_dataset_card",
+    )
+    report = tmp_path / "dataset-card-publication.json"
+    success = tmp_path / "dataset-card-publication.complete"
+    api = _FakeApi()
+
+    def opener(target: str, **kwargs: object) -> _FakeResponse:
+        return _FakeResponse((metadata / "manifest" / "ucsc-hub.json").read_bytes())
+
+    def failed_validator(*args: object, **kwargs: object) -> dict[str, object]:
+        raise RuntimeError("render pending")
+
+    with pytest.raises(RuntimeError, match="was published but validation failed"):
+        publish_dataset_card(
+            metadata,
+            report,
+            expected_base_revision=ARTIFACT_REVISION,
+            publication_approval=approval,
+            success_marker_path=success,
+            api=api,
+            opener=opener,
+            validator=failed_validator,
+        )
+    assert api.commit_kwargs is not None
+    assert not success.exists()
+
+    def successful_validator(*args: object, **kwargs: object) -> dict[str, object]:
+        return {
+            "valid": True,
+            "repository": REPOSITORY_ID,
+            "revision": "b" * 40,
+            "credentials_sent": False,
+            "bigwig_checks_performed": 0,
+        }
+
+    validate_existing_dataset_card_publication(
+        metadata,
+        report,
+        expected_base_revision=ARTIFACT_REVISION,
+        final_revision="b" * 40,
+        publication_approval=approval,
+        success_marker_path=success,
+        validator=successful_validator,
+    )
+
+    recovered = json.loads(report.read_text())
+    assert recovered["status"] == "validated_existing_publication"
+    assert recovered["recovered_from_status"] == "published_validation_failed"
+    assert success.read_text() == f"{'b' * 40}\n"
+
+
 def test_publication_failure_preserves_created_revision_for_recovery(
     tmp_path: Path,
 ) -> None:
@@ -503,7 +690,7 @@ def test_publication_failure_preserves_created_revision_for_recovery(
             validation,
             report,
             expected_base_revision=ARTIFACT_REVISION,
-            publication_approval=_publication_approval(),
+            publication_approval=_publication_approval(metadata),
             udc_dir=tmp_path / "udc",
             success_marker_path=success_marker,
             api=_FakeApi(),
@@ -533,7 +720,7 @@ def test_publication_rejects_validator_invalid_result(tmp_path: Path) -> None:
             validation,
             report,
             expected_base_revision=ARTIFACT_REVISION,
-            publication_approval=_publication_approval(),
+            publication_approval=_publication_approval(metadata),
             udc_dir=tmp_path / "udc",
             api=_FakeApi(),
             validator=validator,
@@ -563,7 +750,7 @@ def test_existing_publication_validation_recovers_without_a_commit(
         report,
         expected_base_revision=ARTIFACT_REVISION,
         final_revision="b" * 40,
-        publication_approval=_publication_approval(),
+        publication_approval=_publication_approval(metadata),
         udc_dir=tmp_path / "udc",
         success_marker_path=success_marker,
         validator=validator,
@@ -597,7 +784,7 @@ def test_existing_publication_rejects_validator_invalid_result(
             report,
             expected_base_revision=ARTIFACT_REVISION,
             final_revision="b" * 40,
-            publication_approval=_publication_approval(),
+            publication_approval=_publication_approval(metadata),
             udc_dir=tmp_path / "udc",
             success_marker_path=success_marker,
             validator=validator,
@@ -621,7 +808,7 @@ def test_existing_publication_requires_matching_publisher_report(
             report,
             expected_base_revision=ARTIFACT_REVISION,
             final_revision="b" * 40,
-            publication_approval=_publication_approval(),
+            publication_approval=_publication_approval(metadata),
             udc_dir=tmp_path / "udc",
             success_marker_path=tmp_path / "publication.complete",
             validator=lambda *args, **kwargs: {"valid": True},
@@ -641,7 +828,7 @@ def test_existing_publication_restores_marker_from_validated_report(
         validation,
         report,
         expected_base_revision=ARTIFACT_REVISION,
-        publication_approval=_publication_approval(),
+        publication_approval=_publication_approval(metadata),
         udc_dir=tmp_path / "udc",
         success_marker_path=success_marker,
         api=_FakeApi(),
@@ -659,7 +846,7 @@ def test_existing_publication_restores_marker_from_validated_report(
         report,
         expected_base_revision=ARTIFACT_REVISION,
         final_revision="b" * 40,
-        publication_approval=_publication_approval(),
+        publication_approval=_publication_approval(metadata),
         udc_dir=tmp_path / "udc",
         success_marker_path=success_marker,
         validator=validator,
@@ -678,12 +865,13 @@ def test_validated_recovery_rejects_modified_metadata(tmp_path: Path) -> None:
     _write_validation_report(metadata, validation)
     report = tmp_path / "publication.json"
     success_marker = tmp_path / "publication.complete"
+    approval = _publication_approval(metadata)
     publish_track_hub(
         metadata,
         validation,
         report,
         expected_base_revision=ARTIFACT_REVISION,
-        publication_approval=_publication_approval(),
+        publication_approval=approval,
         udc_dir=tmp_path / "udc",
         success_marker_path=success_marker,
         api=_FakeApi(),
@@ -733,13 +921,13 @@ def test_validated_recovery_rejects_modified_metadata(tmp_path: Path) -> None:
             runner=_fake_runner,
         )
 
-    with pytest.raises(RuntimeError, match="published hub file identity differs"):
+    with pytest.raises(ValueError, match="incomplete or mismatched"):
         validate_existing_track_hub_publication(
             metadata,
             report,
             expected_base_revision=ARTIFACT_REVISION,
             final_revision="b" * 40,
-            publication_approval=_publication_approval(),
+            publication_approval=approval,
             udc_dir=tmp_path / "udc",
             success_marker_path=success_marker,
             validator=validator,
@@ -777,14 +965,17 @@ def test_publication_rejects_missing_approval_and_slurm(
                 "approved_by": "author",
                 "approved_at": "2026-07-22",
                 "expected_base_revision": ARTIFACT_REVISION,
+                "operation": "publish_hub",
+                "candidate_sha256": publication_candidate_sha256(metadata),
             },
             udc_dir=tmp_path / "udc",
             api=_FakeApi(),
         )
 
 
+@pytest.mark.parametrize("target", ["publish_hub", "publish_dataset_card"])
 def test_enabled_workflow_builds_validates_and_separates_publication(
-    tmp_path: Path,
+    tmp_path: Path, target: str
 ) -> None:
     release_manifest = tmp_path / "release.json"
     release_manifest.write_text(json.dumps(_release_manifest()), encoding="utf-8")
@@ -821,7 +1012,7 @@ hub:
             "--cores",
             "1",
             "--dry-run",
-            "publish_hub",
+            target,
         ],
         cwd=REPOSITORY_ROOT,
         env=environment,
@@ -832,6 +1023,11 @@ hub:
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert "build_track_hub_metadata" in result.stdout
-    assert "validate_track_hub" in result.stdout
-    assert "publish_hub" in result.stdout
-    assert "publication.complete" in result.stdout
+    assert ("\nrule validate_track_hub:" in result.stdout) is (target == "publish_hub")
+    assert f"\nrule {target}:" in result.stdout
+    expected_marker = (
+        "publication.complete"
+        if target == "publish_hub"
+        else "dataset-card-publication.complete"
+    )
+    assert expected_marker in result.stdout

@@ -1,0 +1,64 @@
+qa:
+  enabled: true
+  # Retained issue #4 and #6 metadata trees. These inputs are read-only.
+  release_metadata_root: /shared/project/scratch/gpn-star-scores/release/metadata
+  hub_metadata_root: /shared/project/scratch/gpn-star-scores/hub/metadata
+  output_root: /shared/project/scratch/gpn-star-scores/qa
+  udc_cache_root: /shared/project/scratch/gpn-star-scores/qa-ucsc-udc-cache
+
+  # Immutable artifact revision recorded by issue #4.
+  release_revision: 5c799b2ec6aa089f0caa8294ae72adb4510f81ae
+  # Immutable metadata-only correction published and validated by issue #2.
+  hub_revision: 340a04b4ccc95d68ad3be4fc3b08d725f29842e4
+  # Reuse the completed full public sweep; omit this to intentionally rerun it.
+  public_hub_report: reports/v1.0.0-qa-preflight/public-hub.json
+
+  # Set this to the exact clean candidate commit that will receive v1.0.0.
+  workflow_commit: 0000000000000000000000000000000000000000
+
+  # Committed, machine-readable production and scheduler evidence.
+  scf_evidence: reports/scf-smoke-pilot.json
+  bigwig_evidence: reports/bigwig-benchmark-pilot/summary.json
+  hub_evidence: reports/v1.0.0-qa-preflight/hub-evidence.json
+
+  viewer_attempts: 3
+  viewer_retry_seconds: 60
+  hf_block_size: 4194304
+
+  known_limitations:
+    - id: score-interpretation-language
+      description: >-
+        Deeper author-approved biological interpretation is deferred; v1 retains
+        the documented schemas, coordinates, and visualization transform.
+      evidence_url: https://github.com/gonzalobenegas/gpn-star-scores/issues/19
+    - id: raw-llr-browser-tracks
+      description: >-
+        Raw calibrated-LLR BigWigs are a post-v1 addition; Parquet remains the
+        canonical quantitative score product.
+      evidence_url: https://github.com/gonzalobenegas/gpn-star-scores/issues/15
+
+  # The issue #2 public preflight found all 16 configs ready, so no Viewer
+  # waiver is current. If readiness regresses, a waiver must use the exact
+  # issue #4 approval and issue #17 follow-up fields documented by the QA code.
+  waivers: []
+
+  # Keep null through QA and review. Populate only after a GPN-Star author
+  # approves the exact identifiers on issue #2. The qa target never tags.
+  tag_approval: null
+  # tag_approval:
+  #   approved: true
+  #   tag: v1.0.0
+  #   evidence_url: https://github.com/gonzalobenegas/gpn-star-scores/issues/2
+  #   approved_by: AUTHOR_GITHUB_LOGIN
+  #   approved_at: "YYYY-MM-DD"
+  #   workflow_commit: 40_CHARACTER_GITHUB_COMMIT
+  #   release_revision: 5c799b2ec6aa089f0caa8294ae72adb4510f81ae
+  #   hub_revision: 40_CHARACTER_POST_CORRECTION_HUB_COMMIT
+
+  resources:
+    # Issue #2 public-release pilot: 61.87 s / 11,409,068 KiB peak RSS. The
+    # request applies 1.5x memory margin and the repository runtime minimum.
+    release: {mem_mb: 17408, runtime: 30, disk_mb: 1024}
+    # Issue #6 cold-cache hub validation: 426.27 s / 118,892 KiB peak RSS.
+    hub: {mem_mb: 1024, runtime: 15, disk_mb: 1024}
+    record: {mem_mb: 1024, runtime: 5, disk_mb: 1024}

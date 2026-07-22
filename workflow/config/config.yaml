@@ -176,3 +176,27 @@ hub:
       mem_mb: null
       runtime: null
       disk_mb: null
+
+qa:
+  # End-to-end public QA is opt-in and never creates a tag by itself.
+  enabled: false
+  release_metadata_root: null
+  hub_metadata_root: null
+  release_revision: null
+  hub_revision: null
+  public_hub_report: null
+  workflow_commit: null
+  udc_cache_root: null
+  scf_evidence: reports/scf-smoke-pilot.json
+  bigwig_evidence: reports/bigwig-benchmark-pilot/summary.json
+  hub_evidence: reports/ucsc-track-hub-preflight/summary.json
+  viewer_attempts: 1
+  viewer_retry_seconds: 0
+  hf_block_size: 4194304
+  known_limitations: []
+  waivers: []
+  tag_approval: null
+  resources:
+    release: {mem_mb: null, runtime: null, disk_mb: null}
+    hub: {mem_mb: null, runtime: null, disk_mb: null}
+    record: {mem_mb: null, runtime: null, disk_mb: null}

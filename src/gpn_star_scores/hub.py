@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import math
@@ -15,7 +16,7 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
 from huggingface_hub import CommitOperationAdd, HfApi
@@ -33,6 +34,7 @@ from gpn_star_scores.release import (
 from gpn_star_scores.tracks import TRACKS, ucsc_assembly_name
 
 HUB_APPROVAL_ISSUE = "https://github.com/gonzalobenegas/gpn-star-scores/issues/6"
+HUB_QA_APPROVAL_ISSUE = "https://github.com/gonzalobenegas/gpn-star-scores/issues/2"
 HUB_RELEASE_ASSEMBLY_ORDER = ("hg38", "ce11", "dm6", "gg6", "tair10", "mm39")
 HUB_DATABASE_NAMES = {
     assembly: ucsc_assembly_name(assembly) for assembly in HUB_RELEASE_ASSEMBLY_ORDER
@@ -1018,14 +1020,28 @@ def validate_track_hub(
 
 
 def _validated_publication_approval(
-    approval: Mapping[str, Any] | None, expected_base_revision: str
+    approval: Mapping[str, Any] | None,
+    expected_base_revision: str,
+    *,
+    operation: str,
+    candidate_sha256: str,
 ) -> dict[str, Any]:
+    if operation not in {"publish_hub", "publish_dataset_card"}:
+        raise ValueError(f"unknown publication approval operation: {operation}")
+    if not re.fullmatch(r"[0-9a-f]{64}", candidate_sha256):
+        raise ValueError("publication candidate must have an exact SHA-256")
     if not isinstance(approval, Mapping):
         raise ValueError("public hub update requires explicit author approval")
     if (
         approval.get("approved") is not True
-        or approval.get("evidence_url") != HUB_APPROVAL_ISSUE
+        or not isinstance(approval.get("evidence_url"), str)
+        or not re.fullmatch(
+            r"https://github\.com/gonzalobenegas/gpn-star-scores/issues/\d+",
+            approval["evidence_url"],
+        )
         or approval.get("expected_base_revision") != expected_base_revision
+        or approval.get("operation") != operation
+        or approval.get("candidate_sha256") != candidate_sha256
         or not isinstance(approval.get("approved_by"), str)
         or not approval["approved_by"]
         or not isinstance(approval.get("approved_at"), str)
@@ -1044,6 +1060,20 @@ def _publication_files(metadata_root: Path) -> list[Path]:
     if any(not path.is_file() for path in files):
         raise ValueError("hub publication metadata is incomplete")
     return files
+
+
+def publication_candidate_sha256(metadata_root: str | Path) -> str:
+    """Hash every path and byte identity submitted by full-hub publication."""
+
+    metadata = Path(metadata_root)
+    digest = hashlib.sha256()
+    for path in _publication_files(metadata):
+        relative_path = path.relative_to(metadata).as_posix()
+        digest.update(relative_path.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(bytes.fromhex(sha256_file(path)))
+        digest.update(b"\n")
+    return digest.hexdigest()
 
 
 def _validated_recovery_publication(
@@ -1170,6 +1200,94 @@ def validate_public_track_hub(
     }
 
 
+def _public_metadata_bytes(
+    repository_id: str,
+    revision: str,
+    relative_path: str,
+    *,
+    opener: Callable[..., Any],
+) -> bytes:
+    encoded_path = quote(relative_path, safe="/")
+    encoded_revision = quote(revision, safe="")
+    url = (
+        f"{HUGGING_FACE_URL}/datasets/{repository_id}/resolve/"
+        f"{encoded_revision}/{encoded_path}"
+    )
+    with opener(url, timeout=60) as response:
+        status = getattr(response, "status", 200)
+        content = response.read()
+    if status != 200:
+        raise RuntimeError(f"public metadata returned HTTP {status}: {relative_path}")
+    return content
+
+
+def validate_public_dataset_card(
+    metadata_root: str | Path,
+    *,
+    revision: str,
+    repository_id: str = REPOSITORY_ID,
+    api: Any | None = None,
+    opener: Callable[..., Any] = urlopen,
+) -> dict[str, Any]:
+    """Validate only the public dataset card and its unchanged hub manifest."""
+
+    _validate_revision(revision)
+    if repository_id != REPOSITORY_ID:
+        raise ValueError(f"hub repository must be {REPOSITORY_ID}")
+    metadata = Path(metadata_root)
+    manifest = _validate_local_metadata(metadata)
+    public_api = api or HfApi(token=False)
+    info = public_api.repo_info(
+        repository_id,
+        repo_type="dataset",
+        revision=revision,
+        token=False,
+    )
+    if getattr(info, "private", True) or getattr(info, "sha", None) != revision:
+        raise RuntimeError("public dataset-card revision did not resolve exactly")
+
+    checks = []
+    for relative_path in ("README.md", "manifest/ucsc-hub.json"):
+        local = metadata / relative_path
+        content = _public_metadata_bytes(
+            repository_id,
+            revision,
+            relative_path,
+            opener=opener,
+        )
+        if content != local.read_bytes():
+            raise RuntimeError(f"published metadata identity differs: {relative_path}")
+        checks.append(
+            {
+                "path": relative_path,
+                "size": len(content),
+                "sha256": sha256_file(local),
+            }
+        )
+
+    with opener(f"{HUGGING_FACE_URL}/datasets/{repository_id}", timeout=60) as response:
+        page_status = getattr(response, "status", 200)
+        page = response.read().decode("utf-8", errors="replace")
+    if (
+        page_status != 200
+        or repository_id not in page
+        or "GPN-Star genome-wide scores" not in page
+    ):
+        raise RuntimeError("public dataset-card page did not render")
+    return {
+        "report_version": 1,
+        "valid": True,
+        "repository": repository_id,
+        "revision": revision,
+        "public": True,
+        "credentials_sent": False,
+        "artifact_revision": manifest["artifact_revision"],
+        "file_checks": checks,
+        "dataset_card_rendered": True,
+        "bigwig_checks_performed": 0,
+    }
+
+
 def validate_existing_track_hub_publication(
     metadata_root: str | Path,
     report_path: str | Path,
@@ -1186,8 +1304,13 @@ def validate_existing_track_hub_publication(
 
     _validate_revision(expected_base_revision, field="expected_base_revision")
     _validate_revision(final_revision, field="final_revision")
+    metadata = Path(metadata_root)
+    _validate_local_metadata(metadata)
     approval = _validated_publication_approval(
-        publication_approval, expected_base_revision
+        publication_approval,
+        expected_base_revision,
+        operation="publish_hub",
+        candidate_sha256=publication_candidate_sha256(metadata),
     )
     if repository_id != REPOSITORY_ID:
         raise ValueError(f"hub repository must be {REPOSITORY_ID}")
@@ -1195,8 +1318,6 @@ def validate_existing_track_hub_publication(
         raise RuntimeError(
             "hub publication validation must run from one non-Slurm process"
         )
-    metadata = Path(metadata_root)
-    _validate_local_metadata(metadata)
     publication = _validated_recovery_publication(
         metadata,
         report_path,
@@ -1232,6 +1353,87 @@ def validate_existing_track_hub_publication(
     _atomic_write_text(success_marker, f"{final_revision}\n")
 
 
+def validate_existing_dataset_card_publication(
+    metadata_root: str | Path,
+    report_path: str | Path,
+    *,
+    expected_base_revision: str,
+    final_revision: str,
+    publication_approval: Mapping[str, Any] | None,
+    success_marker_path: str | Path,
+    repository_id: str = REPOSITORY_ID,
+    opener: Callable[..., Any] = urlopen,
+    validator: Callable[..., dict[str, Any]] = validate_public_dataset_card,
+) -> None:
+    """Recover validation for an already-published README-only commit."""
+
+    _validate_revision(expected_base_revision, field="expected_base_revision")
+    _validate_revision(final_revision, field="final_revision")
+    if repository_id != REPOSITORY_ID:
+        raise ValueError(f"hub repository must be {REPOSITORY_ID}")
+    if os.environ.get("SLURM_JOB_ID"):
+        raise RuntimeError("dataset-card validation must run outside Slurm")
+    metadata = Path(metadata_root)
+    _validate_local_metadata(metadata)
+    approval = _validated_publication_approval(
+        publication_approval,
+        expected_base_revision,
+        operation="publish_dataset_card",
+        candidate_sha256=sha256_file(metadata / "README.md"),
+    )
+    publication = _read_json(report_path)
+    expected = {
+        "repository": repository_id,
+        "public": True,
+        "base_revision": expected_base_revision,
+        "final_revision": final_revision,
+        "single_commit": True,
+        "single_process": True,
+        "slurm_job_id": None,
+        "publication_approval": approval,
+        "published_files": ["README.md"],
+    }
+    recoverable = publication.get("status") in {
+        "published_pending_validation",
+        "published_validation_failed",
+        "validated",
+        "validated_existing_publication",
+    }
+    if (
+        publication.get("report_version") != 1
+        or any(publication.get(field) != value for field, value in expected.items())
+        or not recoverable
+    ):
+        raise ValueError(
+            "validate-existing-card requires its matching publisher report"
+        )
+    success_marker = Path(success_marker_path)
+    if success_marker.resolve() == Path(report_path).resolve():
+        raise ValueError("success marker and publication report must differ")
+    success_marker.unlink(missing_ok=True)
+    recovered_from_status = publication["status"]
+    public_validation = validator(
+        metadata,
+        revision=final_revision,
+        repository_id=repository_id,
+        opener=opener,
+    )
+    if public_validation.get("valid") is not True:
+        raise RuntimeError("existing public dataset-card validation returned invalid")
+    publication.update(
+        {
+            "valid": True,
+            "status": "validated_existing_publication",
+            "recovered_from_status": recovered_from_status,
+            "public_validation": public_validation,
+        }
+    )
+    publication.pop("validation_error_type", None)
+    publication.pop("validation_error", None)
+    atomic_write_json(Path(report_path), publication)
+    _atomic_write_text(success_marker, f"{final_revision}\n")
+
+
 def publish_track_hub(
     metadata_root: str | Path,
     validation_report_path: str | Path,
@@ -1248,8 +1450,13 @@ def publish_track_hub(
     """Atomically add the approved hub and README to the public dataset."""
 
     _validate_revision(expected_base_revision, field="expected_base_revision")
+    metadata = Path(metadata_root)
+    manifest = _validate_local_metadata(metadata)
     approval = _validated_publication_approval(
-        publication_approval, expected_base_revision
+        publication_approval,
+        expected_base_revision,
+        operation="publish_hub",
+        candidate_sha256=publication_candidate_sha256(metadata),
     )
     if repository_id != REPOSITORY_ID:
         raise ValueError(f"hub repository must be {REPOSITORY_ID}")
@@ -1262,8 +1469,6 @@ def publish_track_hub(
         if success_marker.resolve() == Path(report_path).resolve():
             raise ValueError("success marker and publication report must differ")
         success_marker.unlink(missing_ok=True)
-    metadata = Path(metadata_root)
-    manifest = _validate_local_metadata(metadata)
     validation = _read_json(validation_report_path)
     if (
         validation.get("valid") is not True
@@ -1347,6 +1552,120 @@ def publish_track_hub(
         _atomic_write_text(success_marker, f"{final_revision}\n")
 
 
+def publish_dataset_card(
+    metadata_root: str | Path,
+    report_path: str | Path,
+    *,
+    expected_base_revision: str,
+    publication_approval: Mapping[str, Any] | None,
+    success_marker_path: str | Path | None = None,
+    repository_id: str = REPOSITORY_ID,
+    api: Any | None = None,
+    opener: Callable[..., Any] = urlopen,
+    validator: Callable[..., dict[str, Any]] = validate_public_dataset_card,
+) -> None:
+    """Publish and validate only a generated dataset-card correction."""
+
+    _validate_revision(expected_base_revision, field="expected_base_revision")
+    metadata = Path(metadata_root)
+    _validate_local_metadata(metadata)
+    readme = metadata / "README.md"
+    approval = _validated_publication_approval(
+        publication_approval,
+        expected_base_revision,
+        operation="publish_dataset_card",
+        candidate_sha256=sha256_file(readme),
+    )
+    if repository_id != REPOSITORY_ID:
+        raise ValueError(f"hub repository must be {REPOSITORY_ID}")
+    if os.environ.get("SLURM_JOB_ID"):
+        raise RuntimeError("dataset-card publication must run outside Slurm")
+    success_marker = (
+        Path(success_marker_path) if success_marker_path is not None else None
+    )
+    if success_marker is not None:
+        if success_marker.resolve() == Path(report_path).resolve():
+            raise ValueError("success marker and publication report must differ")
+        success_marker.unlink(missing_ok=True)
+
+    authenticated_api = api or HfApi()
+    repository = authenticated_api.repo_info(repository_id, repo_type="dataset")
+    if getattr(repository, "private", True):
+        raise RuntimeError("dataset-card publication requires a public repository")
+    if getattr(repository, "sha", None) != expected_base_revision:
+        raise RuntimeError("public repository changed since the approved base revision")
+    remote_manifest = _public_metadata_bytes(
+        repository_id,
+        expected_base_revision,
+        "manifest/ucsc-hub.json",
+        opener=opener,
+    )
+    local_manifest = metadata / "manifest" / "ucsc-hub.json"
+    if remote_manifest != local_manifest.read_bytes():
+        raise RuntimeError(
+            "public hub manifest differs from the dataset-card candidate"
+        )
+
+    commit = authenticated_api.create_commit(
+        repo_id=repository_id,
+        repo_type="dataset",
+        operations=[
+            CommitOperationAdd(path_in_repo="README.md", path_or_fileobj=readme)
+        ],
+        commit_message="Update GPN-Star dataset card",
+        parent_commit=expected_base_revision,
+    )
+    final_revision = getattr(commit, "oid", None)
+    _validate_revision(final_revision, field="final_revision")
+    publication = {
+        "report_version": 1,
+        "valid": False,
+        "status": "published_pending_validation",
+        "repository": repository_id,
+        "public": True,
+        "base_revision": expected_base_revision,
+        "final_revision": final_revision,
+        "single_commit": True,
+        "single_process": True,
+        "slurm_job_id": None,
+        "publication_approval": approval,
+        "published_files": ["README.md"],
+    }
+    atomic_write_json(Path(report_path), publication)
+    try:
+        public_validation = validator(
+            metadata,
+            revision=final_revision,
+            repository_id=repository_id,
+            opener=opener,
+        )
+        if public_validation.get("valid") is not True:
+            raise RuntimeError("public dataset-card validation returned invalid")
+    except BaseException as error:
+        publication.update(
+            {
+                "status": "published_validation_failed",
+                "validation_error_type": type(error).__name__,
+                "validation_error": str(error),
+            }
+        )
+        atomic_write_json(Path(report_path), publication)
+        raise RuntimeError(
+            f"dataset-card revision {final_revision} was published but validation "
+            "failed; validate that exact revision before retrying publication"
+        ) from error
+    publication.update(
+        {
+            "valid": True,
+            "status": "validated",
+            "public_validation": public_validation,
+        }
+    )
+    atomic_write_json(Path(report_path), publication)
+    if success_marker is not None:
+        _atomic_write_text(success_marker, f"{final_revision}\n")
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -1374,7 +1693,22 @@ def _parser() -> argparse.ArgumentParser:
     publish.add_argument("--approved-by", required=True)
     publish.add_argument("--approved-at", required=True)
     publish.add_argument("--approval-expected-base-revision", required=True)
+    publish.add_argument("--approval-operation", required=True)
+    publish.add_argument("--approval-candidate-sha256", required=True)
     publish.add_argument("--udc-dir", type=Path, required=True)
+
+    card = commands.add_parser("publish-card")
+    card.add_argument("--metadata-root", type=Path, required=True)
+    card.add_argument("--report", type=Path, required=True)
+    card.add_argument("--success-marker", type=Path)
+    card.add_argument("--expected-base-revision", required=True)
+    card.add_argument("--approval-approved", required=True)
+    card.add_argument("--approval-evidence-url", required=True)
+    card.add_argument("--approved-by", required=True)
+    card.add_argument("--approved-at", required=True)
+    card.add_argument("--approval-expected-base-revision", required=True)
+    card.add_argument("--approval-operation", required=True)
+    card.add_argument("--approval-candidate-sha256", required=True)
 
     existing = commands.add_parser("validate-existing")
     existing.add_argument("--metadata-root", type=Path, required=True)
@@ -1387,7 +1721,23 @@ def _parser() -> argparse.ArgumentParser:
     existing.add_argument("--approved-by", required=True)
     existing.add_argument("--approved-at", required=True)
     existing.add_argument("--approval-expected-base-revision", required=True)
+    existing.add_argument("--approval-operation", required=True)
+    existing.add_argument("--approval-candidate-sha256", required=True)
     existing.add_argument("--udc-dir", type=Path, required=True)
+
+    existing_card = commands.add_parser("validate-existing-card")
+    existing_card.add_argument("--metadata-root", type=Path, required=True)
+    existing_card.add_argument("--report", type=Path, required=True)
+    existing_card.add_argument("--success-marker", type=Path, required=True)
+    existing_card.add_argument("--expected-base-revision", required=True)
+    existing_card.add_argument("--final-revision", required=True)
+    existing_card.add_argument("--approval-approved", required=True)
+    existing_card.add_argument("--approval-evidence-url", required=True)
+    existing_card.add_argument("--approved-by", required=True)
+    existing_card.add_argument("--approved-at", required=True)
+    existing_card.add_argument("--approval-expected-base-revision", required=True)
+    existing_card.add_argument("--approval-operation", required=True)
+    existing_card.add_argument("--approval-candidate-sha256", required=True)
     return parser
 
 
@@ -1398,6 +1748,8 @@ def _approval_from_args(args: argparse.Namespace) -> dict[str, Any]:
         "approved_by": args.approved_by,
         "approved_at": args.approved_at,
         "expected_base_revision": args.approval_expected_base_revision,
+        "operation": args.approval_operation,
+        "candidate_sha256": args.approval_candidate_sha256,
     }
 
 
@@ -1430,6 +1782,15 @@ def main(argv: Sequence[str] | None = None) -> None:
             success_marker_path=args.success_marker,
         )
         return
+    if args.command == "publish-card":
+        publish_dataset_card(
+            args.metadata_root,
+            args.report,
+            expected_base_revision=args.expected_base_revision,
+            publication_approval=_approval_from_args(args),
+            success_marker_path=args.success_marker,
+        )
+        return
     if args.command == "validate-existing":
         validate_existing_track_hub_publication(
             args.metadata_root,
@@ -1438,6 +1799,16 @@ def main(argv: Sequence[str] | None = None) -> None:
             final_revision=args.final_revision,
             publication_approval=_approval_from_args(args),
             udc_dir=args.udc_dir,
+            success_marker_path=args.success_marker,
+        )
+        return
+    if args.command == "validate-existing-card":
+        validate_existing_dataset_card_publication(
+            args.metadata_root,
+            args.report,
+            expected_base_revision=args.expected_base_revision,
+            final_revision=args.final_revision,
+            publication_approval=_approval_from_args(args),
             success_marker_path=args.success_marker,
         )
         return
