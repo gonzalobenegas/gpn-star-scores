@@ -648,9 +648,11 @@ def test_existing_publication_restores_marker_from_validated_report(
         validator=lambda *args, **kwargs: _successful_public_validation(),
     )
     success_marker.unlink()
+    calls = []
 
-    def unexpected_validator(*args: object, **kwargs: object) -> dict[str, object]:
-        raise AssertionError("validated recovery must not repeat public validation")
+    def validator(*args: object, **kwargs: object) -> dict[str, object]:
+        calls.append((args, kwargs))
+        return _successful_public_validation()
 
     validate_existing_track_hub_publication(
         metadata,
@@ -660,12 +662,89 @@ def test_existing_publication_restores_marker_from_validated_report(
         publication_approval=_publication_approval(),
         udc_dir=tmp_path / "udc",
         success_marker_path=success_marker,
-        validator=unexpected_validator,
+        validator=validator,
     )
 
     publication = json.loads(report.read_text())
-    assert publication["status"] == "validated"
+    assert len(calls) == 1
+    assert publication["status"] == "validated_existing_publication"
+    assert publication["recovered_from_status"] == "validated"
     assert success_marker.read_text() == f"{'b' * 40}\n"
+
+
+def test_validated_recovery_rejects_modified_metadata(tmp_path: Path) -> None:
+    metadata = _build_metadata(tmp_path)
+    validation = tmp_path / "validation.json"
+    _write_validation_report(metadata, validation)
+    report = tmp_path / "publication.json"
+    success_marker = tmp_path / "publication.complete"
+    publish_track_hub(
+        metadata,
+        validation,
+        report,
+        expected_base_revision=ARTIFACT_REVISION,
+        publication_approval=_publication_approval(),
+        udc_dir=tmp_path / "udc",
+        success_marker_path=success_marker,
+        api=_FakeApi(),
+        validator=lambda *args, **kwargs: _successful_public_validation(),
+    )
+    remote_files = {
+        path.relative_to(metadata).as_posix(): path.read_bytes()
+        for path in [
+            metadata / "README.md",
+            metadata / "manifest" / "ucsc-hub.json",
+            *sorted(item for item in (metadata / "ucsc").rglob("*") if item.is_file()),
+        ]
+    }
+    success_marker.unlink()
+    with (metadata / "README.md").open("a", encoding="utf-8") as handle:
+        handle.write("\nChanged after publication.\n")
+
+    class FinalRevisionApi(_FakeApi):
+        def repo_info(self, *args: object, **kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(private=False, sha="b" * 40)
+
+    def opener(target: object, **kwargs: object) -> _FakeResponse:
+        if isinstance(target, str):
+            marker = f"/resolve/{'b' * 40}/"
+            relative_path = target.split(marker, maxsplit=1)[1]
+            return _FakeResponse(remote_files[relative_path])
+        return _FakeResponse(
+            b"x" * 64,
+            status=206,
+            headers={"Content-Range": "bytes 0-63/100"},
+        )
+
+    def validator(
+        metadata_root: str | Path,
+        *,
+        revision: str,
+        udc_dir: str | Path,
+        repository_id: str,
+    ) -> dict[str, object]:
+        return validate_public_track_hub(
+            metadata_root,
+            revision=revision,
+            udc_dir=udc_dir,
+            repository_id=repository_id,
+            api=FinalRevisionApi(),
+            opener=opener,
+            runner=_fake_runner,
+        )
+
+    with pytest.raises(RuntimeError, match="published hub file identity differs"):
+        validate_existing_track_hub_publication(
+            metadata,
+            report,
+            expected_base_revision=ARTIFACT_REVISION,
+            final_revision="b" * 40,
+            publication_approval=_publication_approval(),
+            udc_dir=tmp_path / "udc",
+            success_marker_path=success_marker,
+            validator=validator,
+        )
+    assert not success_marker.exists()
 
 
 def test_publication_rejects_missing_approval_and_slurm(

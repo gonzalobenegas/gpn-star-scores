@@ -1209,29 +1209,26 @@ def validate_existing_track_hub_publication(
     if success_marker.resolve() == Path(report_path).resolve():
         raise ValueError("success marker and publication report must differ")
     success_marker.unlink(missing_ok=True)
-    if publication["valid"] is not True:
-        recovered_from_status = publication["status"]
-        public_validation = validator(
-            metadata,
-            revision=final_revision,
-            udc_dir=udc_dir,
-            repository_id=repository_id,
-        )
-        if public_validation.get("valid") is not True:
-            raise RuntimeError(
-                "existing public hub validation returned an invalid result"
-            )
-        publication.update(
-            {
-                "valid": True,
-                "status": "validated_existing_publication",
-                "recovered_from_status": recovered_from_status,
-                "public_validation": public_validation,
-            }
-        )
-        publication.pop("validation_error_type", None)
-        publication.pop("validation_error", None)
-        atomic_write_json(Path(report_path), publication)
+    recovered_from_status = publication["status"]
+    public_validation = validator(
+        metadata,
+        revision=final_revision,
+        udc_dir=udc_dir,
+        repository_id=repository_id,
+    )
+    if public_validation.get("valid") is not True:
+        raise RuntimeError("existing public hub validation returned an invalid result")
+    publication.update(
+        {
+            "valid": True,
+            "status": "validated_existing_publication",
+            "recovered_from_status": recovered_from_status,
+            "public_validation": public_validation,
+        }
+    )
+    publication.pop("validation_error_type", None)
+    publication.pop("validation_error", None)
+    atomic_write_json(Path(report_path), publication)
     _atomic_write_text(success_marker, f"{final_revision}\n")
 
 

@@ -183,4 +183,6 @@ recovery report. Resume without creating another commit with the module's
 `validate-existing` subcommand, using the same approval record, base revision,
 metadata tree, and preserved report and final revision. Recovery rejects a
 missing or mismatched publisher-created report instead of asserting an
-unverified base-to-final single-commit relationship.
+unverified base-to-final single-commit relationship. It always repeats the
+anonymous immutable-revision validation before writing the success marker, so
+changed local metadata cannot be certified by an older validation report.
