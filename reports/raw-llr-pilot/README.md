@@ -1,6 +1,6 @@
 # Raw calibrated-LLR production pilot
 
-Status: **pilot complete; production and publication pending**
+Status: **production valid; publication pending**
 
 The issue #15 pilot exercised the complete generation and finalization path
 for `gpn-star-hg38-v100-200m`. It read only the immutable LLR Parquet shards
@@ -44,11 +44,13 @@ score-set run used workflow ID
 - finalizer jobs `3350246`–`3350249` completed in 2,196–2,243 seconds, peaked
   at 24,418.4–25,442.7 MiB RSS, and used 69.51–70.66% CPU efficiency.
 
-The retained chromosome request is 16,384 MB, 30 minutes, and 16,384 MB
-temporary disk, giving about a 1.5x measured memory margin. Finalizers retain
-49,152 MB, 60 minutes, and 24,576 MB temporary disk, matching the measured
-pilot and established v1 repack envelope. Audits and aggregation use the
-4,096 MB policy minimum.
+The pilot initially selected 16,384 MB and 30 minutes for chromosome jobs,
+49,152 MB and 60 minutes for finalizers, and the 4,096 MB policy minimum for
+audits and aggregation. Full production evidence below supersedes the runtime
+and audit-memory assumptions: retained requests are 60 minutes for chromosome
+jobs, 120 minutes for finalizers, 16,384 MB for audits, and 4,096 MB for
+aggregation. Temporary-disk requests remain 16,384, 24,576, 1,024, and 1,024
+MB respectively.
 
 Jobs `3350214`–`3350216` failed before reading source data because the first
 ignored config file was placed in node-local `/tmp`, which compute nodes could
@@ -56,6 +58,50 @@ not see. Moving that config into the shared worktree resolved the operational
 error; those attempts created no artifacts and supplied no scientific
 evidence.
 
-The machine-readable details are in
-[`summary.json`](summary.json). Full 32-track production and both public
-publication commits are intentionally recorded later.
+## Full 32-track production
+
+The production aggregate passed on 2026-07-23 for exactly 32 new BigWigs:
+
+- 198,020,546,809 total bytes;
+- 593,920 source-to-final sampled-value checks;
+- 544 explicit source-gap checks;
+- 19,339,670,405 negative, 19,196,780,608 positive, and 12,865,669,875
+  zero source-matrix values;
+- direct generation, three-decimal Float32 visualization values, an explicit
+  reference-zero baseline, and no use of `abs_llr_calibrated`; and
+- machine-readable scope `new_raw_llr_tracks_only` with
+  `existing_v1_files_checked: 0`.
+
+The quota-safe recovery workflow
+`gpn-star_8a5c52e4-a239-404b-a516-de97e343555b` completed the 14 missing
+finalizers as jobs `3350761`, `3350762`, `3350848`, `3350849`, `3350950`,
+`3350960`, `3350970`, `3351041`, `3351063`, `3351109`, `3351111`,
+`3351159`, `3351162`, and `3351308`. Their wall times were 735–2,139
+seconds, peak RSS was 8,973–25,007 MiB, and one-core CPU efficiency was
+76.2–90.2%. The 14 focused audits completed in 68–434 seconds and peaked at
+4,091–11,289 MiB; aggregate job `3351468` completed in 9 seconds. All 32
+final files were present after completion, no private sibling output remained,
+and scratch returned to its 989 GiB baseline.
+
+The production run corrected two resource assumptions:
+
+- the initial 64-job run
+  `gpn-star_90c42704-5e00-47d6-885f-a1a8ae072f94` exposed 30-minute
+  chromosome-build timeouts under heavy shared-filesystem contention, so
+  chromosome builds retain 60 minutes; and
+- focused audits used up to 11,289 MiB, so future audit requests are 16,384
+  MB rather than the 4,096 MB policy minimum.
+
+The resumed 24-job run
+`gpn-star_c9734eb3-d4cb-4a09-9db4-3eb2adb0b4b3` completed the remaining
+chromosome builds but concurrent finalizers exhausted the 1,024 GiB user
+scratch quota. Diagnostic job `3350715` recorded `Disk quota exceeded`.
+Sixteen abandoned private sibling directories from canceled attempts occupied
+about 35 GiB; only those exact directories were removed. Commit `39a4603`
+made finalizer cleanup SIGTERM-aware. The successful recovery then used two
+concurrent jobs, 120-minute finalizer limits, and atomic promotion; each
+successful finalizer reclaimed its chromosome inputs before another wave.
+
+The machine-readable details are in [`summary.json`](summary.json). The exact
+candidate digest, immutable Hugging Face revisions, hub validation, and manual
+raw-only UCSC rendering evidence are recorded after their publication steps.

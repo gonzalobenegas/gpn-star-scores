@@ -168,6 +168,8 @@ def test_aggregate_requires_exactly_32_new_track_audits(tmp_path: Path) -> None:
 
     validation = json.loads(output_json.read_text(encoding="utf-8"))
     assert validation["track_count"] == 32
+    assert validation["validation_scope"] == "new_raw_llr_tracks_only"
+    assert validation["existing_v1_files_checked"] == 0
     assert validation["sample_check_count"] == 64
     assert validation["gap_check_count"] == 32
     assert validation["reference_zero_baseline"] is True

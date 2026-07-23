@@ -472,6 +472,8 @@ def aggregate_raw_llr_validation(
         "report_version": 1,
         "product": "raw_calibrated_llr",
         "valid": True,
+        "validation_scope": "new_raw_llr_tracks_only",
+        "existing_v1_files_checked": 0,
         "track_count": len(tracks),
         "selected_method": "direct",
         "value_decimals": VALUE_DECIMALS,
