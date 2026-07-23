@@ -322,6 +322,21 @@ def publish_raw_llr(
         raise RuntimeError("raw-LLR publication requires the public repository")
     if getattr(repository, "sha", None) != expected_base_revision:
         raise RuntimeError("public repository changed since the approved base revision")
+    siblings = getattr(repository, "siblings", None)
+    if not isinstance(siblings, (list, tuple)):
+        raise RuntimeError("could not inspect approved-base repository paths")
+    base_paths = {
+        getattr(sibling, "rfilename", None)
+        for sibling in siblings
+        if isinstance(getattr(sibling, "rfilename", None), str)
+    }
+    collisions = sorted(
+        record["path"] for record in records if record["path"] in base_paths
+    )
+    if collisions:
+        raise RuntimeError(
+            f"raw-LLR publication would overwrite approved-base paths: {collisions!r}"
+        )
     operations = [
         CommitOperationAdd(
             path_in_repo=record["path"],

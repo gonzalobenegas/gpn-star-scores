@@ -140,6 +140,34 @@ def browser_launch_links(*, include_raw_llr: bool = False) -> list[dict[str, str
     return links
 
 
+def raw_llr_validation_links() -> list[dict[str, str]]:
+    """Return raw-only UCSC links for focused issue-15 rendering checks."""
+
+    links = []
+    for score_set in SCORE_SETS:
+        group = _track_symbol(score_set.name)
+        settings = {
+            "db": hub_database_name(score_set.assembly),
+            "hubUrl": TRACK_HUB_URL,
+            "hideTracks": "1",
+            "ignoreCookie": "1",
+            group: "show",
+            f"{group}Entropy": "hide",
+            f"{group}Logo": "hide",
+            f"{group}RawLlr": "dense",
+        }
+        links.append(
+            {
+                "score_set": score_set.name,
+                "ucsc_assembly": hub_database_name(score_set.assembly),
+                "url": (
+                    f"https://genome.ucsc.edu/cgi-bin/hgTracks?{urlencode(settings)}"
+                ),
+            }
+        )
+    return links
+
+
 def _validated_bigwig_records(
     release_manifest: Mapping[str, Any], artifact_revision: str
 ) -> dict[tuple[str, str], dict[str, Any]]:
@@ -261,6 +289,96 @@ def _validated_raw_llr_records(
     if set(observed) != set(expected):
         raise ValueError("raw-LLR validation does not cover the exact 32-track catalog")
     return observed
+
+
+def _extended_release_manifest(
+    release_manifest: Mapping[str, Any],
+    records: Mapping[tuple[str, str], Mapping[str, Any]],
+    raw_llr_records: Mapping[tuple[str, str], Mapping[str, Any]],
+    *,
+    artifact_revision: str,
+    raw_llr_artifact_revision: str,
+) -> dict[str, Any]:
+    """Combine trusted v1 identities and focused raw-LLR evidence."""
+
+    extended = json.loads(json.dumps(release_manifest))
+    if not isinstance(extended, dict):
+        raise AssertionError("JSON release manifest did not remain an object")
+    old_files = []
+    for key, record in sorted(records.items()):
+        old_files.append(
+            {
+                field: record[field]
+                for field in (
+                    "path",
+                    "score_set",
+                    "assembly",
+                    "ucsc_assembly",
+                    "track",
+                    "size",
+                    "sha256",
+                    "bases_covered",
+                    "zoom_levels",
+                )
+            }
+            | {"artifact_revision": artifact_revision}
+        )
+    raw_files = []
+    for key, record in sorted(raw_llr_records.items()):
+        raw_files.append(
+            {
+                field: record[field]
+                for field in (
+                    "path",
+                    "score_set",
+                    "assembly",
+                    "ucsc_assembly",
+                    "track",
+                    "size",
+                    "sha256",
+                    "bases_covered",
+                    "zoom_levels",
+                )
+            }
+            | {"artifact_revision": raw_llr_artifact_revision}
+        )
+    files = [*old_files, *raw_files]
+    bigwig = extended.get("bigwig")
+    validation = extended.get("validation")
+    if not isinstance(bigwig, dict) or not isinstance(validation, dict):
+        raise ValueError("source release manifest lacks mutable BigWig metadata")
+    extended["release_manifest_version"] = 2
+    bigwig.update(
+        {
+            "file_count": len(files),
+            "total_bytes": sum(int(record["size"]) for record in files),
+            "files": files,
+            "artifact_revisions": {
+                "v1": {
+                    "revision": artifact_revision,
+                    "track_count": len(old_files),
+                    "validation_source": "trusted_v1_release_manifest",
+                    "revalidated": False,
+                },
+                "raw_calibrated_llr": {
+                    "revision": raw_llr_artifact_revision,
+                    "track_count": len(raw_files),
+                    "validation_source": "manifest/raw-llr-validation.json",
+                    "revalidated": True,
+                },
+            },
+        }
+    )
+    validation.update(
+        {
+            "expected_bigwig_files": len(files),
+            "bigwig_validation_passed": True,
+            "bigwig_validation_scope": "new_raw_llr_tracks_only",
+            "existing_v1_bigwigs_revalidated": False,
+            "raw_llr_validation_passed": True,
+        }
+    )
+    return extended
 
 
 def _render_hub(contact_email: str) -> str:
@@ -395,6 +513,7 @@ def _render_track_db(
                         f"    shortLabel LLR {base}",
                         f"    longLabel {label} {base} raw calibrated LLR",
                         f"    priority {base_priority}",
+                        "    visibility dense",
                         f"    color {RAW_LLR_POSITIVE_COLOR}",
                         f"    altColor {RAW_LLR_NEGATIVE_COLOR}",
                         (
@@ -426,7 +545,8 @@ artifact revision <code>{raw_llr_artifact_revision}</code>.</p>"""
 <h1>GPN-Star genome-wide scores</h1>
 <p>This hub exposes calibrated entropy and calibrated-LLR-derived sequence-logo
 tracks for eight GPN-Star score sets across six UCSC assemblies.</p>
-<p>The browser data are pinned to Hugging Face artifact revision
+<p>The original entropy and sequence-logo data are pinned to Hugging Face
+artifact revision
 <code>{artifact_revision}</code>. Parquet remains the canonical score product;
 BigWig values are three-decimal Float32 visualization values.</p>
 {raw_llr_text}
@@ -438,9 +558,24 @@ BigWig values are three-decimal Float32 visualization values.</p>
 """
 
 
-def _render_group_description(score_set: ScoreSetSpec, artifact_revision: str) -> str:
+def _render_group_description(
+    score_set: ScoreSetSpec,
+    artifact_revision: str,
+    raw_llr_artifact_revision: str | None,
+) -> str:
     label = _score_set_label(score_set)
     model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
+    revision_text = (
+        "The entropy and sequence-logo browser tracks are pinned to artifact "
+        f"revision <code>{artifact_revision}</code>. The raw calibrated-LLR "
+        "tracks are pinned to artifact revision "
+        f"<code>{raw_llr_artifact_revision}</code>."
+        if raw_llr_artifact_revision is not None
+        else (
+            "These browser tracks are pinned to artifact revision "
+            f"<code>{artifact_revision}</code>."
+        )
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>{html.escape(label)}</title></head>
@@ -450,8 +585,7 @@ def _render_group_description(score_set: ScoreSetSpec, artifact_revision: str) -
 <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>.</p>
 <p>Source Parquet uses one-based positions and supplied assembly chromosome
 names. These browser tracks use UCSC chromosome names and zero-based,
-half-open one-base intervals. Data are pinned to artifact revision
-<code>{artifact_revision}</code>.</p>
+half-open one-base intervals. {revision_text}</p>
 </body>
 </html>
 """
@@ -621,6 +755,17 @@ def build_track_hub(
         if raw_llr_validation is not None and raw_llr_artifact_revision is not None
         else None
     )
+    extended_release_manifest = (
+        _extended_release_manifest(
+            release_manifest,
+            records,
+            raw_llr_records,
+            artifact_revision=artifact_revision,
+            raw_llr_artifact_revision=raw_llr_artifact_revision,
+        )
+        if raw_llr_records is not None and raw_llr_artifact_revision is not None
+        else None
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     try:
@@ -654,7 +799,11 @@ def build_track_hub(
                 group = _track_symbol(score_set.name)
                 _write_text(
                     assembly_root / f"{group}.html",
-                    _render_group_description(score_set, artifact_revision),
+                    _render_group_description(
+                        score_set,
+                        artifact_revision,
+                        raw_llr_artifact_revision,
+                    ),
                 )
                 _write_text(
                     assembly_root / f"{group}Entropy.html",
@@ -673,10 +822,15 @@ def build_track_hub(
                     )
 
         launch_links = browser_launch_links(include_raw_llr=raw_llr_records is not None)
+        validation_links = (
+            {link["score_set"]: link for link in raw_llr_validation_links()}
+            if raw_llr_records is not None
+            else {}
+        )
         _write_text(
             temporary / "README.md",
             render_dataset_card(
-                release_manifest,
+                extended_release_manifest or release_manifest,
                 hub_launch_links=launch_links,
                 raw_llr_validation=raw_llr_validation,
             ),
@@ -701,6 +855,7 @@ def build_track_hub(
                 "url": record["url"],
                 "size": record["size"],
                 "sha256": record["sha256"],
+                "bases_covered": record["bases_covered"],
                 "zoom_levels": record["zoom_levels"],
                 "artifact_revision": artifact_revision,
             }
@@ -718,6 +873,7 @@ def build_track_hub(
                     "url": record["url"],
                     "size": record["size"],
                     "sha256": record["sha256"],
+                    "bases_covered": record["bases_covered"],
                     "zoom_levels": record["zoom_levels"],
                     "artifact_revision": raw_llr_artifact_revision,
                 }
@@ -743,6 +899,15 @@ def build_track_hub(
                         link["url"]
                         for link in launch_links
                         if link["score_set"] == score_set.name
+                    ),
+                    **(
+                        {
+                            "raw_llr_validation_url": validation_links[score_set.name][
+                                "url"
+                            ]
+                        }
+                        if raw_llr_records is not None
+                        else {}
                     ),
                 }
                 for score_set in SCORE_SETS
@@ -770,12 +935,92 @@ def build_track_hub(
                 raw_llr_validation_file,
                 manifest_root / "raw-llr-validation.json",
             )
+        if extended_release_manifest is not None:
+            atomic_write_json(
+                manifest_root / "release.json",
+                extended_release_manifest,
+            )
         atomic_write_json(manifest_root / "ucsc-hub.json", hub_manifest)
         _validate_local_metadata(temporary)
         _atomic_promote_directory(temporary, output)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise
+
+
+def _validate_extended_release_manifest(
+    path: Path,
+    hub_manifest: Mapping[str, Any],
+) -> None:
+    if not path.is_file():
+        raise ValueError("raw-LLR hub lacks the updated release manifest")
+    release = _read_json(path)
+    repository = release.get("repository")
+    bigwig = release.get("bigwig")
+    validation = release.get("validation")
+    files = bigwig.get("files") if isinstance(bigwig, Mapping) else None
+    hub_tracks = hub_manifest.get("tracks")
+    if (
+        release.get("release_manifest_version") != 2
+        or not isinstance(repository, Mapping)
+        or repository.get("id") != REPOSITORY_ID
+        or not isinstance(bigwig, Mapping)
+        or bigwig.get("file_count") != 72
+        or bigwig.get("value_decimals") != 3
+        or not isinstance(files, list)
+        or len(files) != 72
+        or not isinstance(validation, Mapping)
+        or validation.get("expected_bigwig_files") != 72
+        or validation.get("bigwig_validation_passed") is not True
+        or validation.get("bigwig_validation_scope") != "new_raw_llr_tracks_only"
+        or validation.get("existing_v1_bigwigs_revalidated") is not False
+        or validation.get("raw_llr_validation_passed") is not True
+        or not isinstance(hub_tracks, list)
+        or len(hub_tracks) != 72
+    ):
+        raise ValueError("updated release manifest contract differs")
+    expected = {(record["score_set"], record["track"]): record for record in hub_tracks}
+    observed = set()
+    for record in files:
+        if not isinstance(record, Mapping):
+            raise ValueError("updated release BigWig records must be objects")
+        key = (record.get("score_set"), record.get("track"))
+        hub_record = expected.get(key)
+        if (
+            hub_record is None
+            or key in observed
+            or record.get("path") != hub_record.get("path")
+            or record.get("assembly") != hub_record.get("assembly")
+            or record.get("ucsc_assembly") != hub_record.get("source_ucsc_assembly")
+            or record.get("size") != hub_record.get("size")
+            or record.get("sha256") != hub_record.get("sha256")
+            or record.get("bases_covered") != hub_record.get("bases_covered")
+            or record.get("zoom_levels") != hub_record.get("zoom_levels")
+            or record.get("artifact_revision") != hub_record.get("artifact_revision")
+        ):
+            raise ValueError(f"updated release identity differs: {key!r}")
+        observed.add(key)
+    if observed != set(expected):
+        raise ValueError("updated release manifest catalog differs")
+    if bigwig.get("total_bytes") != sum(int(record["size"]) for record in files):
+        raise ValueError("updated release manifest byte total differs")
+    provenance = bigwig.get("artifact_revisions")
+    expected_provenance = {
+        "v1": {
+            "revision": hub_manifest["artifact_revision"],
+            "track_count": 40,
+            "validation_source": "trusted_v1_release_manifest",
+            "revalidated": False,
+        },
+        "raw_calibrated_llr": {
+            "revision": hub_manifest["raw_llr_artifact_revision"],
+            "track_count": 32,
+            "validation_source": "manifest/raw-llr-validation.json",
+            "revalidated": True,
+        },
+    }
+    if provenance != expected_provenance:
+        raise ValueError("updated release revision provenance differs")
 
 
 def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
@@ -808,6 +1053,10 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         _validated_raw_llr_records(
             _read_json(raw_validation_path),
             raw_llr_artifact_revision,
+        )
+        _validate_extended_release_manifest(
+            metadata_root / "manifest" / "release.json",
+            manifest,
         )
     elif raw_llr_artifact_revision is not None:
         raise ValueError("legacy hub manifest cannot name a raw-LLR revision")
@@ -861,6 +1110,7 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         link["score_set"]: link
         for link in browser_launch_links(include_raw_llr=raw_llr_enabled)
     }
+    validation_links = {link["score_set"]: link for link in raw_llr_validation_links()}
     if not isinstance(score_sets, list) or len(score_sets) != len(SCORE_SETS):
         raise ValueError("UCSC hub manifest must contain the exact score-set catalog")
     for score_set, record in zip(SCORE_SETS, score_sets, strict=True):
@@ -872,9 +1122,16 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
                 "ucsc_assembly": hub_database_name(score_set.assembly),
                 "model_id": score_set.model_id,
                 "browser_url": launch_links[score_set.name]["url"],
+                **(
+                    {"raw_llr_validation_url": validation_links[score_set.name]["url"]}
+                    if raw_llr_enabled
+                    else {}
+                ),
             }.items()
         ):
             raise ValueError(f"invalid UCSC score-set record: {score_set.name}")
+        if not raw_llr_enabled and "raw_llr_validation_url" in record:
+            raise ValueError("legacy UCSC score-set record names raw-LLR validation")
 
     tracks = manifest.get("tracks")
     if not isinstance(tracks, list) or len(tracks) != expected_track_count:
@@ -930,7 +1187,12 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         raise ValueError("each score set must define one multiWig")
     if track_db_text.count("logo on") != len(SCORE_SETS):
         raise ValueError("each score set must enable sequence-logo rendering")
-    if track_db_text.count("visibility dense") < len(SCORE_SETS):
+    expected_dense_count = (
+        len(SCORE_SETS) * (1 + 1 + len(RAW_LLR_TRACKS))
+        if raw_llr_enabled
+        else len(SCORE_SETS)
+    )
+    if track_db_text.count("visibility dense") != expected_dense_count:
         raise ValueError("each entropy track must default to dense")
     if raw_llr_enabled:
         if track_db_text.count("compositeTrack on") != len(SCORE_SETS):

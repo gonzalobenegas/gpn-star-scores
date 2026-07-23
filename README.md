@@ -114,6 +114,10 @@ immutable LLR Parquet shards and produces `llr_A`, `llr_C`, `llr_G`, and
 `abs_llr_calibrated` is not used or derived. Generation, validation, and
 publication are isolated from the 40 immutable v1 BigWigs, so the post-v1
 workflow neither rebuilds nor revalidates them.
+After publication the public browser catalog contains 72 BigWigs: the 40 v1
+tracks retain their original immutable artifact revision, and the 32 raw LLR
+tracks use the additive artifact revision recorded in the release and hub
+manifests.
 The measured issue #15 resource and validation evidence is recorded in
 [`reports/raw-llr-pilot`](reports/raw-llr-pilot/README.md).
 

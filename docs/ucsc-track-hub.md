@@ -64,6 +64,7 @@ The workflow atomically builds:
 metadata/
 ├── README.md
 ├── manifest/
+│   ├── release.json             # v2 combined 72-track catalog
 │   ├── ucsc-hub.json
 │   └── raw-llr-validation.json  # when issue #15 is enabled
 └── ucsc/
@@ -91,7 +92,13 @@ hiding unrelated tracks and opening the selected model's entropy, logo, and
 raw-LLR views when the extension is enabled. `manifest/ucsc-hub.json` records
 every generated control-file checksum, all 72 pinned BigWig URLs and
 identities, the six database names, and all eight model groups and launch
-URLs.
+URLs. The v2 `manifest/release.json` combines the trusted 40-track v1 catalog
+with the 32 focused raw-LLR identities and records their two immutable
+artifact revisions without revalidating the v1 files.
+For each score set, the hub manifest also records a
+`raw_llr_validation_url` that explicitly hides entropy and logo and opens only
+the raw-LLR composite. Use those eight URLs for issue #15 rendering evidence;
+the user-facing launch links intentionally open all views.
 
 ## Build and validation
 

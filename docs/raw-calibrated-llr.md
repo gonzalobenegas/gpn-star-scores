@@ -86,6 +86,9 @@ The publisher creates one optimistic Hugging Face commit with 32
 replace v1 BigWigs, or update metadata in that commit. Anonymous
 post-publication validation checks only the 32 new LFS identities and HTTP
 byte-range responses and records the immutable artifact revision.
+Before creating the commit, the publisher enumerates the approved base
+revision and rejects any candidate path that already exists, preventing an
+`Add` operation from silently becoming an overwrite.
 
 ```bash
 uv run --locked snakemake \
@@ -114,7 +117,7 @@ The browser presentation adapts the
 organization:
 
 - one `compositeTrack` per model with separate A, C, G, and T child rows;
-- `dense` as the composite default;
+- `dense` on the composite and every child;
 - shared group auto-scaling;
 - an always-visible zero baseline;
 - `mean+whiskers` windowing and unaveraged mouse-over values; and

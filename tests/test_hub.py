@@ -24,6 +24,7 @@ from gpn_star_scores.hub import (
     publication_candidate_sha256,
     publish_dataset_card,
     publish_track_hub,
+    raw_llr_validation_links,
     validate_existing_dataset_card_publication,
     validate_existing_track_hub_publication,
     validate_public_dataset_card,
@@ -290,7 +291,7 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
 
     hg38 = (metadata / "ucsc" / "hg38" / "trackDb.txt").read_text()
     assert hg38.count("compositeTrack on") == 3
-    assert hg38.count("visibility dense") == 6
+    assert hg38.count("visibility dense") == 18
     assert hg38.count("autoScale group") == 3
     assert hg38.count("alwaysZero on") == 3
     assert hg38.count("yLineMark 0") == 3
@@ -306,6 +307,15 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     assert hub_manifest["hub_manifest_version"] == 2
     assert hub_manifest["track_count"] == 72
     assert hub_manifest["raw_llr_artifact_revision"] == RAW_LLR_ARTIFACT_REVISION
+    validation_links = {link["score_set"]: link for link in raw_llr_validation_links()}
+    for score_set in hub_manifest["score_sets"]:
+        url = score_set["raw_llr_validation_url"]
+        assert url == validation_links[score_set["name"]]["url"]
+        query = parse_qs(urlparse(url).query)
+        group = next(key for key, value in query.items() if value == ["show"])
+        assert query[f"{group}Entropy"] == ["hide"]
+        assert query[f"{group}Logo"] == ["hide"]
+        assert query[f"{group}RawLlr"] == ["dense"]
     assert len(hub_manifest["validation_scope_tracks"]) == 32
     assert all(
         any(track in item for track in RAW_LLR_TRACKS)
@@ -314,6 +324,43 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     assert (
         metadata / "manifest" / "raw-llr-validation.json"
     ).read_text() == json.dumps(_raw_llr_validation())
+    release_manifest = json.loads((metadata / "manifest" / "release.json").read_text())
+    assert release_manifest["release_manifest_version"] == 2
+    assert release_manifest["bigwig"]["file_count"] == 72
+    assert release_manifest["bigwig"]["total_bytes"] == (40 * 100) + (32 * 50)
+    assert release_manifest["validation"]["bigwig_validation_scope"] == (
+        "new_raw_llr_tracks_only"
+    )
+    assert release_manifest["validation"]["existing_v1_bigwigs_revalidated"] is False
+    provenance = release_manifest["bigwig"]["artifact_revisions"]
+    assert provenance["v1"] == {
+        "revision": ARTIFACT_REVISION,
+        "track_count": 40,
+        "validation_source": "trusted_v1_release_manifest",
+        "revalidated": False,
+    }
+    assert provenance["raw_calibrated_llr"] == {
+        "revision": RAW_LLR_ARTIFACT_REVISION,
+        "track_count": 32,
+        "validation_source": "manifest/raw-llr-validation.json",
+        "revalidated": True,
+    }
+    release_records = {
+        (record["score_set"], record["track"]): record
+        for record in release_manifest["bigwig"]["files"]
+    }
+    assert all(
+        release_records[(score_set.name, track)]["artifact_revision"]
+        == ARTIFACT_REVISION
+        for score_set in SCORE_SETS
+        for track in TRACKS
+    )
+    assert all(
+        release_records[(score_set.name, track)]["artifact_revision"]
+        == RAW_LLR_ARTIFACT_REVISION
+        for score_set in SCORE_SETS
+        for track in RAW_LLR_TRACKS
+    )
 
     tair10 = metadata / "ucsc" / "araTha1"
     raw_description = next(tair10.glob("*RawLlr.html")).read_text()
@@ -324,6 +371,17 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     assert "`llr_A`, `llr_C`, `llr_G`, and `llr_T`" in readme
     assert "Entropy and raw LLR default to the compact `dense` view" in readme
     assert "does not repeat validation of the 40 immutable v1 BigWigs" in readme
+    assert "72 BigWigs" in readme
+    assert ARTIFACT_REVISION in readme
+    assert RAW_LLR_ARTIFACT_REVISION in readme
+    hub_description = (metadata / "ucsc" / "description.html").read_text()
+    assert "original entropy and sequence-logo data" in hub_description
+    group_description = (
+        metadata / "ucsc" / "hg38" / "gpnStarHg38V100200m.html"
+    ).read_text()
+    assert "entropy and sequence-logo browser tracks" in group_description
+    assert ARTIFACT_REVISION in group_description
+    assert RAW_LLR_ARTIFACT_REVISION in group_description
 
 
 def test_build_rejects_output_that_contains_source_release_manifest(

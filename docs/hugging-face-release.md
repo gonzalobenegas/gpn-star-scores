@@ -120,6 +120,10 @@ Anonymous validation checks only the new LFS identities and byte-range
 responses. The README and UCSC metadata are updated afterward through the
 hub's own approval-gated commit, with existing v1 URLs left pinned to their
 original artifact revision.
+The metadata commit also replaces `manifest/release.json` with a v2,
+72-BigWig catalog. Each record names its immutable artifact revision; the
+manifest explicitly records that its 40 v1 identities reuse trusted release
+evidence while only the 32 raw-LLR identities were newly validated.
 
 The downstream [issue #6 workflow](ucsc-track-hub.md) owns `ucsc/`, `hubCheck`,
 browser rendering, and representative browser-value comparisons. Its files can

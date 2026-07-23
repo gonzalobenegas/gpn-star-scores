@@ -205,13 +205,23 @@ def _write_publication_candidate(tmp_path: Path) -> tuple[Path, Path, dict]:
 
 
 class _PublicationApi:
-    def __init__(self, validation: dict) -> None:
+    def __init__(
+        self,
+        validation: dict,
+        *,
+        base_paths: tuple[str, ...] = (),
+    ) -> None:
         self.validation = validation
+        self.base_paths = base_paths
         self.commit_kwargs = None
 
     def repo_info(self, *args: object, **kwargs: object) -> SimpleNamespace:
         if kwargs.get("revision") is None:
-            return SimpleNamespace(private=False, sha=BASE_REVISION)
+            return SimpleNamespace(
+                private=False,
+                sha=BASE_REVISION,
+                siblings=[SimpleNamespace(rfilename=path) for path in self.base_paths],
+            )
         siblings = [
             SimpleNamespace(
                 rfilename=record["path"],
@@ -280,6 +290,38 @@ def test_publication_adds_only_32_approved_files_in_one_commit(
     assert publication["incremental_bytes"] == validation["total_bytes"]
     assert publication["status"] == "validated"
     assert success.read_text() == f"{FINAL_REVISION}\n"
+
+
+def test_publication_rejects_any_existing_target_path(tmp_path: Path) -> None:
+    root, validation_path, validation = _write_publication_candidate(tmp_path)
+    approval = {
+        "approved": True,
+        "evidence_url": RAW_LLR_APPROVAL_ISSUE,
+        "approved_by": "gonzalobenegas",
+        "approved_at": "2026-07-23",
+        "expected_base_revision": BASE_REVISION,
+        "operation": "publish_raw_llr",
+        "incremental_bytes": validation["total_bytes"],
+        "candidate_sha256": raw_llr_candidate_sha256(root, validation_path),
+        "storage_policy_url": PUBLIC_STORAGE_POLICY,
+    }
+    collision = validation["tracks"][0]["path"]
+    api = _PublicationApi(validation, base_paths=(collision,))
+
+    with pytest.raises(RuntimeError, match="would overwrite approved-base paths"):
+        publish_raw_llr(
+            root,
+            validation_path,
+            tmp_path / "publication.json",
+            expected_base_revision=BASE_REVISION,
+            publication_approval=approval,
+            success_marker_path=tmp_path / "publication.complete",
+            api=api,
+        )
+
+    assert api.commit_kwargs is None
+    assert not (tmp_path / "publication.json").exists()
+    assert not (tmp_path / "publication.complete").exists()
 
 
 def test_public_validation_checks_only_new_remote_identities_and_ranges(
