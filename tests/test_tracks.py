@@ -452,6 +452,80 @@ bigwig:
     assert "aggregate_validation" in result.stdout
 
 
+def test_raw_llr_workflow_dry_run_excludes_existing_track_rules(
+    tmp_path: Path,
+) -> None:
+    source_root = tmp_path / "stage"
+    for shard in expected_shards():
+        path = source_root / shard.relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"x")
+    manifest, parquet_selection = _write_contract(tmp_path)
+    track_selection = tmp_path / "track-selection.json"
+    track_selection.write_text(
+        json.dumps(
+            {
+                "report_version": 1,
+                "status": "selected",
+                "selected_method": "direct",
+                "inventory_manifest_sha256": sha256_file(manifest),
+            }
+        )
+    )
+    config_path = tmp_path / "raw-llr.yaml"
+    config_path.write_text(
+        f"""\
+raw_llr:
+  enabled: true
+  source_root: {source_root}
+  output_root: {tmp_path / "raw-output"}
+  inventory_manifest: {manifest}
+  parquet_selection: {parquet_selection}
+  track_selection: {track_selection}
+  batch_size: 4
+  sample_count: 2
+  value_decimals: 3
+  resources:
+    build_chromosome: {{mem_mb: 4096, runtime: 240, disk_mb: 1024}}
+    concatenate: {{mem_mb: 4096, runtime: 30, disk_mb: 1024}}
+    audit: {{mem_mb: 4096, runtime: 30, disk_mb: 1024}}
+    aggregate: {{mem_mb: 4096, runtime: 30, disk_mb: 1024}}
+    publish: {{mem_mb: 1024, runtime: 120, disk_mb: 1024}}
+""",
+        encoding="utf-8",
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(REPOSITORY_ROOT / "src")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "snakemake",
+            "--snakefile",
+            "workflow/Snakefile",
+            "--configfile",
+            str(config_path),
+            "--cores",
+            "1",
+            "--dry-run",
+        ],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "build_raw_llr_chromosome" in result.stdout
+    assert "concatenate_raw_llr_bigwig" in result.stdout
+    assert "audit_final_raw_llr_bigwig" in result.stdout
+    assert "aggregate_raw_llr_validation" in result.stdout
+    assert "build_chromosome_bigwig" not in result.stdout
+    assert "audit_final_bigwig" not in result.stdout
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize("method", ["wig", "direct"])
 def test_real_ucsc_tools_concatenate_full_assembly_headers(

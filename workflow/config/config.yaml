@@ -124,6 +124,45 @@ bigwig:
       mem_mb: null
       runtime: null
       disk_mb: null
+raw_llr:
+  # Issue #15 is an additive post-v1 workflow. It reads the immutable LLR
+  # Parquet shards and the accepted issue #7 method-selection report but never
+  # rebuilds or validates the existing 40 BigWigs.
+  enabled: false
+  source_root: null
+  output_root: results/raw-llr
+  inventory_manifest: null
+  parquet_selection: null
+  track_selection: null
+  batch_size: 262144
+  sample_count: 1024
+  value_decimals: 3
+  # Remote publication is a separate local target. Populate these only after
+  # the 32-file byte total and candidate digest have been generated and the
+  # exact issue #15 approval has been recorded.
+  expected_base_revision: null
+  publication_approval: null
+  resources:
+    build_chromosome:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    concatenate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    audit:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    aggregate:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
+    publish:
+      mem_mb: null
+      runtime: null
+      disk_mb: null
 
 release:
   # Public publication is an explicit local target. It remains disabled for
@@ -156,7 +195,11 @@ hub:
   # public BigWigs. Public publication is a separate approval-gated target.
   enabled: false
   release_manifest: null
+  # The immutable v1 artifact revision remains the source of entropy and logo
+  # tracks. Configure both raw-LLR fields to add the focused post-v1 extension.
   artifact_revision: null
+  raw_llr_validation: null
+  raw_llr_artifact_revision: null
   expected_base_revision: null
   contact_email: null
   output_root: results/hub

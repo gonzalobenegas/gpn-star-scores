@@ -17,6 +17,7 @@ include: "rules/common.smk"
 include: "rules/inventory.smk"
 include: "rules/parquet_benchmark.smk"
 include: "rules/bigwig.smk"
+include: "rules/raw_llr.smk"
 include: "rules/release.smk"
 include: "rules/hub.smk"
 include: "rules/qa.smk"
@@ -28,6 +29,7 @@ rule artifacts:
         inventory_targets(),
         parquet_benchmark_targets(),
         bigwig_targets(),
+        raw_llr_targets(),
         release_preflight_targets(),
         hub_targets(),
 
@@ -59,6 +61,62 @@ rule publish:
         ),
     run:
         run_release_publication(output[0], log[0])
+
+
+rule publish_raw_llr:
+    """Publish only the 32 approved additive raw-LLR BigWigs."""
+    input:
+        raw_llr_targets(),
+    output:
+        success=raw_llr_publication_success_marker(),
+    log:
+        str(RAW_LLR_OUTPUT_ROOT / "logs" / "publication.log"),
+    threads: 1
+    resources:
+        mem_mb=lambda wildcards: (
+            raw_llr_resource("publish", "mem_mb") if RAW_LLR_ENABLED else 1024
+        ),
+        runtime=lambda wildcards: (
+            raw_llr_resource("publish", "runtime") if RAW_LLR_ENABLED else 30
+        ),
+        disk_mb=lambda wildcards: (
+            raw_llr_resource("publish", "disk_mb") if RAW_LLR_ENABLED else 1024
+        ),
+    params:
+        bigwig_root=str(RAW_LLR_OUTPUT_ROOT),
+        validation=str(RAW_LLR_OUTPUT_ROOT / "validation.json"),
+        report=raw_llr_publication_report(),
+        expected_base=lambda wildcards: str(
+            RAW_LLR_CONFIG.get("expected_base_revision") or ""
+        ),
+        approval_approved=lambda wildcards: raw_llr_approval_value("approved"),
+        approval_evidence=lambda wildcards: raw_llr_approval_value("evidence_url"),
+        approved_by=lambda wildcards: raw_llr_approval_value("approved_by"),
+        approved_at=lambda wildcards: raw_llr_approval_value("approved_at"),
+        approval_base=lambda wildcards: raw_llr_approval_value("expected_base_revision"),
+        approval_operation=lambda wildcards: raw_llr_approval_value("operation"),
+        approval_bytes=lambda wildcards: raw_llr_approval_value("incremental_bytes"),
+        approval_candidate=lambda wildcards: raw_llr_approval_value("candidate_sha256"),
+        approval_policy=lambda wildcards: raw_llr_approval_value("storage_policy_url"),
+    shell:
+        """
+        {PYTHON_EXECUTABLE:q} -m gpn_star_scores.raw_llr_publication \
+            --bigwig-root {params.bigwig_root:q} \
+            --validation {params.validation:q} \
+            --report {params.report:q} \
+            --success-marker {output.success:q} \
+            --expected-base-revision {params.expected_base:q} \
+            --approval-approved {params.approval_approved:q} \
+            --approval-evidence-url {params.approval_evidence:q} \
+            --approved-by {params.approved_by:q} \
+            --approved-at {params.approved_at:q} \
+            --approval-expected-base-revision {params.approval_base:q} \
+            --approval-operation {params.approval_operation:q} \
+            --approval-incremental-bytes {params.approval_bytes:q} \
+            --approval-candidate-sha256 {params.approval_candidate:q} \
+            --approval-storage-policy-url {params.approval_policy:q} \
+            >{log:q} 2>&1
+        """
 
 
 rule publish_hub:

@@ -2,14 +2,18 @@ hub:
   enabled: true
   release_manifest: /shared/project/scratch/gpn-star-scores/release/metadata/manifest/release.json
   artifact_revision: 5c799b2ec6aa089f0caa8294ae72adb4510f81ae
+  # Add both fields after the 32 raw-LLR BigWigs have been published. Existing
+  # entropy/logo URLs remain pinned to artifact_revision above.
+  raw_llr_validation: /shared/project/scratch/gpn-star-scores/raw-llr/validation.json
+  raw_llr_artifact_revision: RAW_LLR_ARTIFACT_COMMIT_SHA
   expected_base_revision: 340a04b4ccc95d68ad3be4fc3b08d725f29842e4
   contact_email: gbenegas@berkeley.edu
   output_root: /shared/project/scratch/gpn-star-scores/hub
   udc_cache_root: /shared/project/scratch/gpn-star-scores/ucsc-udc-cache
 
   # Leave this null while building. Immediately before a public update, record
-  # the author's explicit approval on issue #6 (initial publication) or issue
-  # #2 (release-QA correction), and copy the exact evidence here. The publisher
+  # the author's explicit approval on the owning issue and copy the exact
+  # evidence here. Issue #15 owns the raw-LLR hub update. The publisher
   # rejects a changed remote base. Use publish_dataset_card for README-only
   # updates; reserve publish_hub for hub or track changes.
   publication_approval: null

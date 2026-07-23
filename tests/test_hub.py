@@ -16,6 +16,8 @@ from gpn_star_scores.hub import (
     HUB_QA_APPROVAL_ISSUE,
     HUB_TRACK_DB_DIRECTORY_ORDER,
     NUCLEOTIDE_COLORS,
+    RAW_LLR_NEGATIVE_COLOR,
+    RAW_LLR_POSITIVE_COLOR,
     browser_launch_links,
     build_track_hub,
     hub_database_name,
@@ -29,11 +31,13 @@ from gpn_star_scores.hub import (
     validate_track_hub,
 )
 from gpn_star_scores.inventory import sha256_file
+from gpn_star_scores.raw_llr import RAW_LLR_BASES, RAW_LLR_TRACKS
 from gpn_star_scores.release import REPOSITORY_ID, TRACK_HUB_URL
 from gpn_star_scores.tracks import TRACKS, ucsc_assembly_name
 
 REPOSITORY_ROOT = Path(__file__).parents[1]
 ARTIFACT_REVISION = "a" * 40
+RAW_LLR_ARTIFACT_REVISION = "c" * 40
 
 
 def _release_manifest() -> dict[str, object]:
@@ -78,15 +82,55 @@ def _release_manifest() -> dict[str, object]:
     }
 
 
-def _build_metadata(tmp_path: Path) -> Path:
+def _raw_llr_validation() -> dict[str, object]:
+    tracks = []
+    for score_set in SCORE_SETS:
+        for track in RAW_LLR_TRACKS:
+            tracks.append(
+                {
+                    "score_set": score_set.name,
+                    "assembly": score_set.assembly,
+                    "ucsc_assembly": ucsc_assembly_name(score_set.assembly),
+                    "track": track,
+                    "base": RAW_LLR_BASES[track],
+                    "path": f"bigwig/{score_set.name}/{track}.bw",
+                    "size": 50,
+                    "sha256": "2" * 64,
+                    "bases_covered": 10,
+                    "zoom_levels": 2,
+                }
+            )
+    return {
+        "report_version": 1,
+        "product": "raw_calibrated_llr",
+        "valid": True,
+        "track_count": len(tracks),
+        "value_decimals": 3,
+        "reference_zero_baseline": True,
+        "abs_llr_calibrated_used": False,
+        "tracks": tracks,
+    }
+
+
+def _build_metadata(tmp_path: Path, *, include_raw_llr: bool = False) -> Path:
     release_manifest = tmp_path / "release.json"
     release_manifest.write_text(json.dumps(_release_manifest()), encoding="utf-8")
+    raw_llr_validation = None
+    if include_raw_llr:
+        raw_llr_validation = tmp_path / "raw-llr-validation.json"
+        raw_llr_validation.write_text(
+            json.dumps(_raw_llr_validation()), encoding="utf-8"
+        )
     metadata = tmp_path / "metadata"
     build_track_hub(
         release_manifest,
         metadata,
         artifact_revision=ARTIFACT_REVISION,
         contact_email="maintainer@example.org",
+        raw_llr_validation_path=raw_llr_validation,
+        raw_llr_artifact_revision=(
+            RAW_LLR_ARTIFACT_REVISION if include_raw_llr else None
+        ),
     )
     return metadata
 
@@ -185,6 +229,7 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
     assert hg38.count("container multiWig") == 3
     assert hg38.count("graphTypeDefault bar") == 3
     assert hg38.count("logo on") == 3
+    assert hg38.count("visibility dense") == 3
     assert hg38.count("bigDataUrl ") == 15
     assert "noInherit" not in hg38
     for color in NUCLEOTIDE_COLORS.values():
@@ -238,6 +283,47 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         for score_set in SCORE_SETS
         for track in TRACKS
     }
+
+
+def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
+    metadata = _build_metadata(tmp_path, include_raw_llr=True)
+
+    hg38 = (metadata / "ucsc" / "hg38" / "trackDb.txt").read_text()
+    assert hg38.count("compositeTrack on") == 3
+    assert hg38.count("visibility dense") == 6
+    assert hg38.count("autoScale group") == 3
+    assert hg38.count("alwaysZero on") == 3
+    assert hg38.count("yLineMark 0") == 3
+    assert hg38.count("windowingFunction mean+whiskers") == 3
+    assert hg38.count("mouseOverFunction noAverage") == 3
+    assert hg38.count(f"color {RAW_LLR_POSITIVE_COLOR}") == 15
+    assert hg38.count(f"altColor {RAW_LLR_NEGATIVE_COLOR}") == 12
+    assert hg38.count("bigDataUrl ") == 27
+    assert f"/resolve/{ARTIFACT_REVISION}/bigwig/" in hg38
+    assert f"/resolve/{RAW_LLR_ARTIFACT_REVISION}/bigwig/" in hg38
+
+    hub_manifest = json.loads((metadata / "manifest" / "ucsc-hub.json").read_text())
+    assert hub_manifest["hub_manifest_version"] == 2
+    assert hub_manifest["track_count"] == 72
+    assert hub_manifest["raw_llr_artifact_revision"] == RAW_LLR_ARTIFACT_REVISION
+    assert len(hub_manifest["validation_scope_tracks"]) == 32
+    assert all(
+        any(track in item for track in RAW_LLR_TRACKS)
+        for item in hub_manifest["validation_scope_tracks"]
+    )
+    assert (
+        metadata / "manifest" / "raw-llr-validation.json"
+    ).read_text() == json.dumps(_raw_llr_validation())
+
+    tair10 = metadata / "ucsc" / "araTha1"
+    raw_description = next(tair10.glob("*RawLlr.html")).read_text()
+    assert "reference allele is assigned the explicit zero" in raw_description
+    assert "Positive LLR is blue and negative LLR is\nred" in raw_description
+    assert "abs_llr_calibrated" in raw_description
+    readme = (metadata / "README.md").read_text()
+    assert "`llr_A`, `llr_C`, `llr_G`, and `llr_T`" in readme
+    assert "Entropy and raw LLR default to the compact `dense` view" in readme
+    assert "does not repeat validation of the 40 immutable v1 BigWigs" in readme
 
 
 def test_build_rejects_output_that_contains_source_release_manifest(
@@ -374,6 +460,50 @@ def test_validation_checks_hub_ranges_chromosomes_and_zoom_values(
         for check in report["representative_checks"]
     )
     assert "All 40 BigWig URLs" in markdown_path.read_text()
+
+
+def test_extended_hub_validation_does_not_repeat_v1_bigwig_checks(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path, include_raw_llr=True)
+    requested_urls = []
+
+    def opener(request: object, **kwargs: object) -> _FakeResponse:
+        url = getattr(request, "full_url")
+        requested_urls.append(url)
+        assert f"/resolve/{RAW_LLR_ARTIFACT_REVISION}/" in url
+        assert any(url.endswith(f"/{track}.bw") for track in RAW_LLR_TRACKS)
+        return _FakeResponse(
+            b"x" * 50,
+            status=206,
+            headers={"Content-Range": "bytes 0-49/50"},
+        )
+
+    report_path = tmp_path / "validation.json"
+    markdown_path = tmp_path / "validation.md"
+    validate_track_hub(
+        metadata,
+        report_path,
+        markdown_path,
+        udc_dir=tmp_path / "udc",
+        runner=_fake_runner,
+        opener=opener,
+    )
+
+    report = json.loads(report_path.read_text())
+    assert report["validation_scope"] == "new_raw_llr_tracks_only"
+    assert report["existing_v1_bigwigs_revalidated"] is False
+    assert report["hub_check"]["remote_tracks_checked"] is False
+    assert report["track_count"] == 32
+    assert report["http_range_count"] == 32
+    assert len(requested_urls) == 32
+    assert all(
+        set(check["track_values"]) == set(RAW_LLR_TRACKS)
+        for check in report["representative_checks"]
+    )
+    markdown = markdown_path.read_text()
+    assert "All 32 BigWig URLs" in markdown
+    assert "40 immutable v1 BigWigs were not revalidated" in markdown
 
 
 def test_validation_rejects_cross_track_chromosome_length_mismatch(

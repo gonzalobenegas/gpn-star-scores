@@ -23,6 +23,7 @@ from huggingface_hub import CommitOperationAdd, HfApi
 
 from gpn_star_scores.catalog import ASSEMBLIES, SCORE_SETS, ScoreSetSpec
 from gpn_star_scores.inventory import atomic_write_json, sha256_file
+from gpn_star_scores.raw_llr import RAW_LLR_BASES, RAW_LLR_TRACKS
 from gpn_star_scores.release import (
     HUGGING_FACE_URL,
     PAPER_DOI,
@@ -56,6 +57,8 @@ NUCLEOTIDE_COLORS = {
     "G": "255,166,0",
     "T": "255,0,0",
 }
+RAW_LLR_POSITIVE_COLOR = "0,0,255"
+RAW_LLR_NEGATIVE_COLOR = "255,0,0"
 _SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 _EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
@@ -109,23 +112,24 @@ def hub_database_name(assembly: str) -> str:
         raise KeyError(f"unknown release assembly: {assembly}") from error
 
 
-def browser_launch_links() -> list[dict[str, str]]:
+def browser_launch_links(*, include_raw_llr: bool = False) -> list[dict[str, str]]:
     """Return one focused UCSC launch link for each model group."""
 
     links = []
     for score_set in SCORE_SETS:
         group = _track_symbol(score_set.name)
-        query = urlencode(
-            {
-                "db": hub_database_name(score_set.assembly),
-                "hubUrl": TRACK_HUB_URL,
-                "hideTracks": "1",
-                "ignoreCookie": "1",
-                group: "show",
-                f"{group}Entropy": "full",
-                f"{group}Logo": "full",
-            }
-        )
+        settings = {
+            "db": hub_database_name(score_set.assembly),
+            "hubUrl": TRACK_HUB_URL,
+            "hideTracks": "1",
+            "ignoreCookie": "1",
+            group: "show",
+            f"{group}Entropy": "dense",
+            f"{group}Logo": "full",
+        }
+        if include_raw_llr:
+            settings[f"{group}RawLlr"] = "dense"
+        query = urlencode(settings)
         links.append(
             {
                 "score_set": score_set.name,
@@ -199,6 +203,66 @@ def _validated_bigwig_records(
     return observed
 
 
+def _validated_raw_llr_records(
+    raw_llr_validation: Mapping[str, Any], artifact_revision: str
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Validate the exact 32-track extension without touching v1 records."""
+
+    _validate_revision(artifact_revision, field="raw_llr_artifact_revision")
+    if (
+        raw_llr_validation.get("report_version") != 1
+        or raw_llr_validation.get("product") != "raw_calibrated_llr"
+        or raw_llr_validation.get("valid") is not True
+        or raw_llr_validation.get("track_count") != 32
+        or raw_llr_validation.get("value_decimals") != 3
+        or raw_llr_validation.get("reference_zero_baseline") is not True
+        or raw_llr_validation.get("abs_llr_calibrated_used") is not False
+    ):
+        raise ValueError("raw-LLR validation does not certify the 32-track extension")
+    raw_records = raw_llr_validation.get("tracks")
+    if not isinstance(raw_records, list) or len(raw_records) != 32:
+        raise ValueError("raw-LLR validation must contain exactly 32 records")
+
+    expected = {
+        (score_set.name, track): {
+            "assembly": score_set.assembly,
+            "ucsc_assembly": ucsc_assembly_name(score_set.assembly),
+            "base": RAW_LLR_BASES[track],
+            "path": f"bigwig/{score_set.name}/{track}.bw",
+        }
+        for score_set in SCORE_SETS
+        for track in RAW_LLR_TRACKS
+    }
+    observed: dict[tuple[str, str], dict[str, Any]] = {}
+    for raw_record in raw_records:
+        if not isinstance(raw_record, Mapping):
+            raise ValueError("raw-LLR track records must be JSON objects")
+        record = dict(raw_record)
+        key = (str(record.get("score_set")), str(record.get("track")))
+        contract = expected.get(key)
+        if (
+            contract is None
+            or key in observed
+            or any(record.get(field) != value for field, value in contract.items())
+            or not isinstance(record.get("size"), int)
+            or isinstance(record["size"], bool)
+            or record["size"] <= 0
+            or not isinstance(record.get("sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", record["sha256"])
+            or not isinstance(record.get("bases_covered"), int)
+            or record["bases_covered"] <= 0
+            or not isinstance(record.get("zoom_levels"), int)
+            or record["zoom_levels"] < 1
+        ):
+            raise ValueError(f"invalid raw-LLR release record: {key!r}")
+        record["artifact_revision"] = artifact_revision
+        record["url"] = _artifact_url(record["path"], artifact_revision)
+        observed[key] = record
+    if set(observed) != set(expected):
+        raise ValueError("raw-LLR validation does not cover the exact 32-track catalog")
+    return observed
+
+
 def _render_hub(contact_email: str) -> str:
     return "\n".join(
         [
@@ -230,12 +294,20 @@ def _render_track_db(
     score_sets: Sequence[ScoreSetSpec],
     records: Mapping[tuple[str, str], Mapping[str, Any]],
     artifact_revision: str,
+    *,
+    raw_llr_records: Mapping[tuple[str, str], Mapping[str, Any]] | None = None,
+    raw_llr_artifact_revision: str | None = None,
 ) -> str:
+    if (raw_llr_records is None) != (raw_llr_artifact_revision is None):
+        raise ValueError(
+            "raw-LLR records and artifact revision must be supplied together"
+        )
     lines: list[str] = []
     for priority, score_set in enumerate(score_sets, start=1):
         group = _track_symbol(score_set.name)
         entropy = f"{group}Entropy"
         logo = f"{group}Logo"
+        raw_llr = f"{group}RawLlr"
         label = _score_set_label(score_set)
         lines.extend(
             [
@@ -251,7 +323,7 @@ def _render_track_db(
                 "type bigWig",
                 "shortLabel Entropy",
                 f"longLabel {label} calibrated entropy score",
-                "visibility full",
+                "visibility dense",
                 "autoScale on",
                 "graphTypeDefault bar",
                 "maxHeightPixels 100:40:16",
@@ -291,11 +363,62 @@ def _render_track_db(
                     "",
                 ]
             )
+        if raw_llr_records is not None:
+            lines.extend(
+                [
+                    f"track {raw_llr}",
+                    f"parent {group}",
+                    "compositeTrack on",
+                    "type bigWig",
+                    "shortLabel Raw LLR",
+                    f"longLabel {label} raw calibrated LLR by allele",
+                    "visibility dense",
+                    "autoScale group",
+                    "alwaysZero on",
+                    "yLineOnOff on",
+                    "yLineMark 0",
+                    "graphTypeDefault bar",
+                    "maxHeightPixels 100:40:16",
+                    "windowingFunction mean+whiskers",
+                    "mouseOverFunction noAverage",
+                    f"dataVersion {raw_llr_artifact_revision}",
+                    "",
+                ]
+            )
+            for base_priority, track in enumerate(RAW_LLR_TRACKS, start=1):
+                base = RAW_LLR_BASES[track]
+                lines.extend(
+                    [
+                        f"    track {raw_llr}{base}",
+                        f"    parent {raw_llr} on",
+                        "    type bigWig",
+                        f"    shortLabel LLR {base}",
+                        f"    longLabel {label} {base} raw calibrated LLR",
+                        f"    priority {base_priority}",
+                        f"    color {RAW_LLR_POSITIVE_COLOR}",
+                        f"    altColor {RAW_LLR_NEGATIVE_COLOR}",
+                        (
+                            "    bigDataUrl "
+                            f"{raw_llr_records[(score_set.name, track)]['url']}"
+                        ),
+                        f"    dataVersion {raw_llr_artifact_revision}",
+                        "",
+                    ]
+                )
     return "\n".join(lines)
 
 
-def _render_hub_description(artifact_revision: str) -> str:
+def _render_hub_description(
+    artifact_revision: str, raw_llr_artifact_revision: str | None
+) -> str:
     repository_url = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}"
+    raw_llr_text = ""
+    if raw_llr_artifact_revision is not None:
+        raw_llr_text = f"""
+<p>Each model group also includes a dense raw calibrated-LLR composite with
+separate A/C/G/T rows. Positive values are blue, negative values are red, and
+the zero baseline is always visible. These additive tracks are pinned to
+artifact revision <code>{raw_llr_artifact_revision}</code>.</p>"""
     return f"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>GPN-Star genome-wide scores</title></head>
@@ -306,6 +429,7 @@ tracks for eight GPN-Star score sets across six UCSC assemblies.</p>
 <p>The browser data are pinned to Hugging Face artifact revision
 <code>{artifact_revision}</code>. Parquet remains the canonical score product;
 BigWig values are three-decimal Float32 visualization values.</p>
+{raw_llr_text}
 <p><a href="{repository_url}">Dataset, checksums, schemas, and usage</a></p>
 <p>Please cite: {html.escape(PAPER_TITLE)}.
 <a href="https://doi.org/{PAPER_DOI}">doi:{PAPER_DOI}</a>.</p>
@@ -384,6 +508,32 @@ revision: <code>{artifact_revision}</code>.</p>
 """
 
 
+def _render_raw_llr_description(score_set: ScoreSetSpec, artifact_revision: str) -> str:
+    label = _score_set_label(score_set)
+    model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
+    return f"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>{html.escape(label)} raw LLR</title></head>
+<body>
+<h1>{html.escape(label)} raw calibrated LLR</h1>
+<p>Model: <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>
+({html.escape(score_set.model_description)}).</p>
+<p>This CADD-inspired composite presents one A, C, G, and T BigWig row. At
+each covered position the reference allele is assigned the explicit zero
+baseline and each alternate allele retains its independently supplied
+<code>llr_calibrated</code> value. Positive LLR is blue and negative LLR is
+red. The four rows share automatic scaling and display the zero line.</p>
+<p>Values are Float32 rounded to three decimals for browser visualization.
+<code>abs_llr_calibrated</code> is neither used nor derived; Parquet remains
+the canonical full-precision score product.</p>
+<p>One-based Parquet positions were converted explicitly to zero-based,
+half-open one-base BigWig intervals with UCSC chromosome names. Artifact
+revision: <code>{artifact_revision}</code>.</p>
+</body>
+</html>
+"""
+
+
 def _write_text(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
@@ -429,21 +579,48 @@ def build_track_hub(
     *,
     artifact_revision: str,
     contact_email: str,
+    raw_llr_validation_path: str | Path | None = None,
+    raw_llr_artifact_revision: str | None = None,
 ) -> None:
     """Build the complete hub and updated dataset card at a temporary sibling."""
 
     if not _EMAIL_PATTERN.fullmatch(contact_email):
         raise ValueError("contact_email must be a valid single email address")
+    if (raw_llr_validation_path is None) != (raw_llr_artifact_revision is None):
+        raise ValueError(
+            "raw_llr_validation_path and raw_llr_artifact_revision are both required"
+        )
     release_manifest_file = Path(release_manifest_path).resolve()
+    raw_llr_validation_file = (
+        Path(raw_llr_validation_path).resolve()
+        if raw_llr_validation_path is not None
+        else None
+    )
     output = Path(output_dir)
     resolved_output = output.resolve()
-    if (
-        release_manifest_file == resolved_output
-        or resolved_output in release_manifest_file.parents
+    source_manifests = [release_manifest_file]
+    if raw_llr_validation_file is not None:
+        source_manifests.append(raw_llr_validation_file)
+    if any(
+        source == resolved_output or resolved_output in source.parents
+        for source in source_manifests
     ):
-        raise ValueError("output_dir must not contain the source release manifest")
+        raise ValueError("output_dir must not contain a source manifest")
     release_manifest = _read_json(release_manifest_file)
     records = _validated_bigwig_records(release_manifest, artifact_revision)
+    raw_llr_validation = (
+        _read_json(raw_llr_validation_file)
+        if raw_llr_validation_file is not None
+        else None
+    )
+    raw_llr_records = (
+        _validated_raw_llr_records(
+            raw_llr_validation,
+            raw_llr_artifact_revision,
+        )
+        if raw_llr_validation is not None and raw_llr_artifact_revision is not None
+        else None
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     try:
@@ -452,7 +629,7 @@ def build_track_hub(
         _write_text(ucsc_root / "genomes.txt", _render_genomes())
         _write_text(
             ucsc_root / "description.html",
-            _render_hub_description(artifact_revision),
+            _render_hub_description(artifact_revision, raw_llr_artifact_revision),
         )
         for release_assembly in HUB_RELEASE_ASSEMBLY_ORDER:
             score_sets = [
@@ -465,7 +642,13 @@ def build_track_hub(
             assembly_root = ucsc_root / HUB_TRACK_DB_DIRECTORIES[release_assembly]
             _write_text(
                 assembly_root / "trackDb.txt",
-                _render_track_db(score_sets, records, artifact_revision),
+                _render_track_db(
+                    score_sets,
+                    records,
+                    artifact_revision,
+                    raw_llr_records=raw_llr_records,
+                    raw_llr_artifact_revision=raw_llr_artifact_revision,
+                ),
             )
             for score_set in score_sets:
                 group = _track_symbol(score_set.name)
@@ -481,11 +664,22 @@ def build_track_hub(
                     assembly_root / f"{group}Logo.html",
                     _render_logo_description(score_set, artifact_revision),
                 )
+                if raw_llr_artifact_revision is not None:
+                    _write_text(
+                        assembly_root / f"{group}RawLlr.html",
+                        _render_raw_llr_description(
+                            score_set, raw_llr_artifact_revision
+                        ),
+                    )
 
-        launch_links = browser_launch_links()
+        launch_links = browser_launch_links(include_raw_llr=raw_llr_records is not None)
         _write_text(
             temporary / "README.md",
-            render_dataset_card(release_manifest, hub_launch_links=launch_links),
+            render_dataset_card(
+                release_manifest,
+                hub_launch_links=launch_links,
+                raw_llr_validation=raw_llr_validation,
+            ),
         )
         hub_files = [
             {
@@ -508,14 +702,33 @@ def build_track_hub(
                 "size": record["size"],
                 "sha256": record["sha256"],
                 "zoom_levels": record["zoom_levels"],
+                "artifact_revision": artifact_revision,
             }
             for (score_set, track), record in sorted(records.items())
         ]
+        if raw_llr_records is not None:
+            track_urls.extend(
+                {
+                    "score_set": score_set,
+                    "track": track,
+                    "assembly": record["assembly"],
+                    "source_ucsc_assembly": record["ucsc_assembly"],
+                    "ucsc_assembly": hub_database_name(record["assembly"]),
+                    "path": record["path"],
+                    "url": record["url"],
+                    "size": record["size"],
+                    "sha256": record["sha256"],
+                    "zoom_levels": record["zoom_levels"],
+                    "artifact_revision": raw_llr_artifact_revision,
+                }
+                for (score_set, track), record in sorted(raw_llr_records.items())
+            )
         hub_manifest = {
-            "hub_manifest_version": 1,
+            "hub_manifest_version": 2 if raw_llr_records is not None else 1,
             "repository": REPOSITORY_ID,
             "hub_url": TRACK_HUB_URL,
             "artifact_revision": artifact_revision,
+            "raw_llr_artifact_revision": raw_llr_artifact_revision,
             "assembly_count": len(HUB_ASSEMBLY_ORDER),
             "assemblies": list(HUB_ASSEMBLY_ORDER),
             "score_set_count": len(SCORE_SETS),
@@ -535,10 +748,28 @@ def build_track_hub(
                 for score_set in SCORE_SETS
             ],
             "tracks": track_urls,
+            "validation_scope_tracks": (
+                [
+                    f"{score_set.name}/{track}"
+                    for score_set in SCORE_SETS
+                    for track in RAW_LLR_TRACKS
+                ]
+                if raw_llr_records is not None
+                else [
+                    f"{score_set.name}/{track}"
+                    for score_set in SCORE_SETS
+                    for track in TRACKS
+                ]
+            ),
             "files": hub_files,
         }
         manifest_root = temporary / "manifest"
         manifest_root.mkdir()
+        if raw_llr_validation_file is not None:
+            shutil.copyfile(
+                raw_llr_validation_file,
+                manifest_root / "raw-llr-validation.json",
+            )
         atomic_write_json(manifest_root / "ucsc-hub.json", hub_manifest)
         _validate_local_metadata(temporary)
         _atomic_promote_directory(temporary, output)
@@ -549,19 +780,37 @@ def build_track_hub(
 
 def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
     manifest = _read_json(metadata_root / "manifest" / "ucsc-hub.json")
+    manifest_version = manifest.get("hub_manifest_version")
+    raw_llr_enabled = manifest_version == 2
+    expected_track_count = 72 if raw_llr_enabled else 40
     if (
-        manifest.get("hub_manifest_version") != 1
+        manifest_version not in {1, 2}
         or manifest.get("repository") != REPOSITORY_ID
         or manifest.get("hub_url") != TRACK_HUB_URL
         or manifest.get("assembly_count") != len(HUB_ASSEMBLY_ORDER)
         or manifest.get("assemblies") != list(HUB_ASSEMBLY_ORDER)
         or manifest.get("score_set_count") != len(SCORE_SETS)
-        or manifest.get("track_count") != 40
+        or manifest.get("track_count") != expected_track_count
     ):
         raise ValueError("invalid UCSC hub manifest contract")
     artifact_revision = _validate_revision(
         manifest.get("artifact_revision"), field="artifact_revision"
     )
+    raw_llr_artifact_revision = manifest.get("raw_llr_artifact_revision")
+    if raw_llr_enabled:
+        raw_llr_artifact_revision = _validate_revision(
+            raw_llr_artifact_revision,
+            field="raw_llr_artifact_revision",
+        )
+        raw_validation_path = metadata_root / "manifest" / "raw-llr-validation.json"
+        if not raw_validation_path.is_file():
+            raise ValueError("raw-LLR hub lacks its focused validation manifest")
+        _validated_raw_llr_records(
+            _read_json(raw_validation_path),
+            raw_llr_artifact_revision,
+        )
+    elif raw_llr_artifact_revision is not None:
+        raise ValueError("legacy hub manifest cannot name a raw-LLR revision")
     files = manifest.get("files")
     if not isinstance(files, list) or not files:
         raise ValueError("UCSC hub manifest lacks file identities")
@@ -579,6 +828,8 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
                 f"ucsc/{assembly}/{group}Logo.html",
             }
         )
+        if raw_llr_enabled:
+            expected_paths.add(f"ucsc/{assembly}/{group}RawLlr.html")
     observed_paths = set()
     for record in files:
         if not isinstance(record, Mapping):
@@ -606,7 +857,10 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         raise ValueError("UCSC genomes.txt differs from the browser database mapping")
 
     score_sets = manifest.get("score_sets")
-    launch_links = {link["score_set"]: link for link in browser_launch_links()}
+    launch_links = {
+        link["score_set"]: link
+        for link in browser_launch_links(include_raw_llr=raw_llr_enabled)
+    }
     if not isinstance(score_sets, list) or len(score_sets) != len(SCORE_SETS):
         raise ValueError("UCSC hub manifest must contain the exact score-set catalog")
     for score_set, record in zip(SCORE_SETS, score_sets, strict=True):
@@ -623,25 +877,48 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
             raise ValueError(f"invalid UCSC score-set record: {score_set.name}")
 
     tracks = manifest.get("tracks")
-    if not isinstance(tracks, list) or len(tracks) != 40:
-        raise ValueError("UCSC hub manifest must contain 40 track URLs")
+    if not isinstance(tracks, list) or len(tracks) != expected_track_count:
+        raise ValueError(
+            f"UCSC hub manifest must contain {expected_track_count} track URLs"
+        )
     track_urls = []
+    observed_tracks = set()
     for track in tracks:
         if not isinstance(track, Mapping):
             raise ValueError("UCSC hub track records must be objects")
         url = track.get("url")
         assembly = track.get("assembly")
+        track_name = track.get("track")
+        score_set = track.get("score_set")
+        revision = track.get("artifact_revision")
+        expected_revision = (
+            raw_llr_artifact_revision
+            if track_name in RAW_LLR_TRACKS
+            else artifact_revision
+        )
         if (
             not isinstance(url, str)
-            or f"/resolve/{artifact_revision}/bigwig/" not in url
+            or revision != expected_revision
+            or f"/resolve/{expected_revision}/bigwig/" not in url
             or not isinstance(assembly, str)
             or assembly not in HUB_DATABASE_NAMES
             or track.get("ucsc_assembly") != HUB_DATABASE_NAMES[assembly]
             or track.get("source_ucsc_assembly") != HUB_TRACK_DB_DIRECTORIES[assembly]
+            or not isinstance(score_set, str)
+            or not isinstance(track_name, str)
+            or (score_set, track_name) in observed_tracks
         ):
             raise ValueError("invalid UCSC BigWig URL or assembly identity")
+        observed_tracks.add((score_set, track_name))
         track_urls.append(url)
-    if len(set(track_urls)) != 40:
+    expected_tracks = {
+        (score_set.name, track)
+        for score_set in SCORE_SETS
+        for track in (*TRACKS, *(RAW_LLR_TRACKS if raw_llr_enabled else ()))
+    }
+    if observed_tracks != expected_tracks:
+        raise ValueError("UCSC hub track records differ from the expected catalog")
+    if len(set(track_urls)) != expected_track_count:
         raise ValueError("UCSC hub BigWig URLs must be unique")
     track_db_text = "\n".join(
         (metadata_root / "ucsc" / directory / "trackDb.txt").read_text(encoding="utf-8")
@@ -653,6 +930,20 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         raise ValueError("each score set must define one multiWig")
     if track_db_text.count("logo on") != len(SCORE_SETS):
         raise ValueError("each score set must enable sequence-logo rendering")
+    if track_db_text.count("visibility dense") < len(SCORE_SETS):
+        raise ValueError("each entropy track must default to dense")
+    if raw_llr_enabled:
+        if track_db_text.count("compositeTrack on") != len(SCORE_SETS):
+            raise ValueError("each score set must define one raw-LLR composite")
+        signed_color_pair = (
+            f"    color {RAW_LLR_POSITIVE_COLOR}\n    altColor {RAW_LLR_NEGATIVE_COLOR}"
+        )
+        if track_db_text.count(signed_color_pair) != 32:
+            raise ValueError("raw-LLR signed colors differ")
+        if track_db_text.count("autoScale group") != len(SCORE_SETS):
+            raise ValueError("raw-LLR group scaling differs")
+        if track_db_text.count("mouseOverFunction noAverage") != len(SCORE_SETS):
+            raise ValueError("raw-LLR mouse-over settings differ")
     readme = (metadata_root / "README.md").read_text(encoding="utf-8")
     if TRACK_HUB_URL not in readme:
         raise ValueError("dataset card does not link the public UCSC hub")
@@ -813,6 +1104,7 @@ def _validate_track_hub(
     hub_check_result = _run_command(
         [
             hub_check,
+            "-noTracks",
             "-checkSettings",
             f"-version={HUB_SETTINGS_SPEC}",
             f"-udcDir={udc_dir}",
@@ -821,7 +1113,29 @@ def _validate_track_hub(
         runner=runner,
     )
 
-    tracks = manifest["tracks"]
+    validation_scope = manifest.get("validation_scope_tracks")
+    if not isinstance(validation_scope, list) or not all(
+        isinstance(item, str) for item in validation_scope
+    ):
+        raise ValueError("hub manifest lacks an explicit validation scope")
+    scope_keys = {
+        tuple(item.split("/", maxsplit=1))
+        for item in validation_scope
+        if item.count("/") == 1
+    }
+    tracks = [
+        record
+        for record in manifest["tracks"]
+        if (record["score_set"], record["track"]) in scope_keys
+    ]
+    if len(tracks) != len(scope_keys):
+        raise ValueError("hub validation scope does not resolve to unique tracks")
+    raw_llr_scope = manifest["hub_manifest_version"] == 2
+    expected_scope_count = 32 if raw_llr_scope else 40
+    if len(tracks) != expected_scope_count:
+        raise ValueError(
+            f"hub validation scope must contain {expected_scope_count} tracks"
+        )
     range_checks = [_check_http_range(record, opener=opener) for record in tracks]
     chromosome_checks = []
     chromosomes_by_score_set: dict[str, dict[str, int]] = {}
@@ -865,14 +1179,15 @@ def _validate_track_hub(
     }
     representative_checks = []
     for score_set in SCORE_SETS:
-        entropy = records_by_key[(score_set.name, "entropy")]
+        representative_track = RAW_LLR_TRACKS[0] if raw_llr_scope else "entropy"
+        representative = records_by_key[(score_set.name, representative_track)]
         chromosome_sizes = chromosomes_by_score_set[score_set.name]
         chromosome_order = [
             f"chr{chrom}" for chrom in ASSEMBLIES[score_set.assembly].chromosomes
         ]
         chrom, start = _find_covered_locus(
             bigwig_summary,
-            entropy["url"],
+            representative["url"],
             chromosome_sizes,
             chromosome_order,
             runner=runner,
@@ -882,7 +1197,8 @@ def _validate_track_hub(
         zoom_start = max(0, start - 500)
         zoom_end = min(chromosome_sizes[chrom], start + 501)
         zoom_bins = min(10, zoom_end - zoom_start)
-        for track in TRACKS:
+        tracks_for_score_set = RAW_LLR_TRACKS if raw_llr_scope else TRACKS
+        for track in tracks_for_score_set:
             record = records_by_key[(score_set.name, track)]
             value = _summary_values(
                 bigwig_summary,
@@ -936,12 +1252,14 @@ def _validate_track_hub(
         "valid": True,
         "repository": REPOSITORY_ID,
         "artifact_revision": manifest["artifact_revision"],
+        "raw_llr_artifact_revision": manifest.get("raw_llr_artifact_revision"),
         "hub_manifest_sha256": sha256_file(
             metadata_root / "manifest" / "ucsc-hub.json"
         ),
         "hub_target": hub_target,
         "hub_check": {
             "passed": True,
+            "remote_tracks_checked": False,
             "check_settings": True,
             "settings_spec": HUB_SETTINGS_SPEC,
             "stdout": hub_check_result.stdout,
@@ -950,6 +1268,10 @@ def _validate_track_hub(
         "assembly_count": len(HUB_ASSEMBLY_ORDER),
         "score_set_count": len(SCORE_SETS),
         "track_count": len(tracks),
+        "validation_scope": (
+            "new_raw_llr_tracks_only" if raw_llr_scope else "legacy_v1_tracks"
+        ),
+        "existing_v1_bigwigs_revalidated": False if raw_llr_scope else True,
         "http_range_count": len(range_checks),
         "http_range_checks": range_checks,
         "chromosome_checks": chromosome_checks,
@@ -965,7 +1287,8 @@ def _render_validation_markdown(report: Mapping[str, Any]) -> str:
         "",
         f"Artifact revision: `{report['artifact_revision']}`",
         "",
-        f"`hubCheck -checkSettings`: {'passed' if report['hub_check']['passed'] else 'failed'}",
+        "`hubCheck -noTracks -checkSettings`: "
+        f"{'passed' if report['hub_check']['passed'] else 'failed'}",
         "",
         "| Score set | UCSC assembly | Representative locus | Tracks queried |",
         "| --- | --- | --- | ---: |",
@@ -985,6 +1308,16 @@ def _render_validation_markdown(report: Mapping[str, Any]) -> str:
             "",
         ]
     )
+    if report.get("validation_scope") == "new_raw_llr_tracks_only":
+        lines.extend(
+            [
+                f"Raw-LLR artifact revision: `{report['raw_llr_artifact_revision']}`",
+                "",
+                "Validation covered only the 32 additive raw calibrated-LLR "
+                "BigWigs. The 40 immutable v1 BigWigs were not revalidated.",
+                "",
+            ]
+        )
     return "\n".join(lines)
 
 
@@ -1054,7 +1387,11 @@ def _validated_publication_approval(
 def _publication_files(metadata_root: Path) -> list[Path]:
     files = [
         metadata_root / "README.md",
-        metadata_root / "manifest" / "ucsc-hub.json",
+        *sorted(
+            path
+            for path in (metadata_root / "manifest").glob("*.json")
+            if path.is_file()
+        ),
         *sorted(path for path in (metadata_root / "ucsc").rglob("*") if path.is_file()),
     ]
     if any(not path.is_file() for path in files):
@@ -1282,6 +1619,7 @@ def validate_public_dataset_card(
         "public": True,
         "credentials_sent": False,
         "artifact_revision": manifest["artifact_revision"],
+        "raw_llr_artifact_revision": manifest.get("raw_llr_artifact_revision"),
         "file_checks": checks,
         "dataset_card_rendered": True,
         "bigwig_checks_performed": 0,
@@ -1473,6 +1811,8 @@ def publish_track_hub(
     if (
         validation.get("valid") is not True
         or validation.get("artifact_revision") != manifest["artifact_revision"]
+        or validation.get("raw_llr_artifact_revision")
+        != manifest.get("raw_llr_artifact_revision")
         or validation.get("hub_manifest_sha256")
         != sha256_file(metadata / "manifest" / "ucsc-hub.json")
     ):
@@ -1674,6 +2014,8 @@ def _parser() -> argparse.ArgumentParser:
     build.add_argument("--release-manifest", type=Path, required=True)
     build.add_argument("--output-dir", type=Path, required=True)
     build.add_argument("--artifact-revision", required=True)
+    build.add_argument("--raw-llr-validation", type=Path)
+    build.add_argument("--raw-llr-artifact-revision")
     build.add_argument("--contact-email", required=True)
 
     validate = commands.add_parser("validate")
@@ -1761,6 +2103,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.output_dir,
             artifact_revision=args.artifact_revision,
             contact_email=args.contact_email,
+            raw_llr_validation_path=args.raw_llr_validation,
+            raw_llr_artifact_revision=args.raw_llr_artifact_revision,
         )
         return
     if args.command == "validate":
