@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,6 +15,7 @@ from gpn_star_scores.catalog import SCORE_SETS
 from gpn_star_scores.inventory import sha256_file
 from gpn_star_scores.raw_llr import (
     RAW_LLR_TRACKS,
+    _temporary_output_path,
     aggregate_raw_llr_validation,
     validate_raw_llr_chromosome,
 )
@@ -28,6 +31,21 @@ from gpn_star_scores.tracks import ucsc_assembly_name
 
 BASE_REVISION = "a" * 40
 FINAL_REVISION = "b" * 40
+
+
+def test_sigterm_removes_unpromoted_temporary_output(tmp_path: Path) -> None:
+    output = tmp_path / "final" / "llr_A.bw"
+    output.parent.mkdir()
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+
+    with pytest.raises(SystemExit) as error:
+        with _temporary_output_path(output) as temporary:
+            temporary.write_bytes(b"incomplete")
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    assert error.value.code == 128 + signal.SIGTERM
+    assert signal.getsignal(signal.SIGTERM) == previous_sigterm
+    assert list(output.parent.iterdir()) == []
 
 
 def _write_llr_fixture(path: Path) -> None:

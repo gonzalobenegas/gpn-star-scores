@@ -7,12 +7,15 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
+import threading
 from collections.abc import Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 import numpy as np
 import pyBigWig
@@ -266,9 +269,7 @@ def concatenate_raw_llr_bigwig(
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    temporary_dir = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
-    temporary = temporary_dir / output.name
-    try:
+    with _temporary_output_path(output) as temporary:
         stream_concatenate_bigwigs(
             inputs,
             temporary,
@@ -289,8 +290,27 @@ def concatenate_raw_llr_bigwig(
         )
         os.replace(temporary, output)
         atomic_write_json(Path(report_path), payload)
+
+
+@contextmanager
+def _temporary_output_path(output: Path) -> Iterator[Path]:
+    """Yield a sibling output path and remove it on errors or Slurm SIGTERM."""
+
+    temporary_dir = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
+    install_sigterm = threading.current_thread() is threading.main_thread()
+    previous_sigterm = signal.getsignal(signal.SIGTERM) if install_sigterm else None
+
+    def raise_system_exit(signum: int, _frame: object) -> None:
+        raise SystemExit(128 + signum)
+
+    if install_sigterm:
+        signal.signal(signal.SIGTERM, raise_system_exit)
+    try:
+        yield temporary_dir / output.name
     finally:
         shutil.rmtree(temporary_dir, ignore_errors=True)
+        if install_sigterm:
+            signal.signal(signal.SIGTERM, previous_sigterm)
 
 
 def audit_final_raw_llr_bigwig(
