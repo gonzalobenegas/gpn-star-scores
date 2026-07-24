@@ -143,6 +143,7 @@ def _write_validation_report(metadata: Path, path: Path) -> None:
             {
                 "valid": True,
                 "artifact_revision": ARTIFACT_REVISION,
+                "validation_scope": "legacy_v1_tracks",
                 "hub_manifest_sha256": sha256_file(
                     metadata / "manifest" / "ucsc-hub.json"
                 ),
@@ -879,6 +880,17 @@ def test_metadata_only_publication_requires_and_preserves_its_scope(
             AssertionError("BigWig request")
         ),
     )
+    with pytest.raises(ValueError, match="local hub validation does not match"):
+        publish_track_hub(
+            metadata,
+            validation,
+            tmp_path / "wrong-scope-publication.json",
+            expected_base_revision=ARTIFACT_REVISION,
+            publication_approval=_publication_approval(metadata),
+            udc_dir=tmp_path / "udc",
+            metadata_only=False,
+            api=_FakeApi(),
+        )
     validator_calls: list[dict[str, object]] = []
 
     def validator(*args: object, **kwargs: object) -> dict[str, object]:

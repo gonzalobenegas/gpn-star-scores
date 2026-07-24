@@ -147,9 +147,8 @@ replaces that visual check.
 
 CADD's native `mouseOverFunction noAverage` setting is intentionally omitted:
 `hubCheck -noTracks -checkSettings` rejects it as unsupported in public hubs.
-The issue #15 color rendering pass uses a view-only `full` override for the
-four raw rows, while the generated trackDb and launch links retain `dense` as
-their default.
+The issue #15 LLR composite, its four allele rows, and its launch links use
+`full` by default so the configured signed colors are visible.
 
 The issue #6 read-only production run passed all of these automated checks for
 6 assemblies, 8 score sets, and 40 tracks. Its counts, representative loci,

@@ -1,5 +1,8 @@
 hub:
   enabled: true
+  # Set true only for a presentation-only follow-up whose completed BigWig
+  # evidence must be reused without any BigWig request.
+  metadata_only_update: false
   release_manifest: /shared/project/scratch/gpn-star-scores/release/metadata/manifest/release.json
   artifact_revision: 5c799b2ec6aa089f0caa8294ae72adb4510f81ae
   # Add both fields after the 32 raw-LLR BigWigs have been published. Existing

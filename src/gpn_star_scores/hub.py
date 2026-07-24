@@ -2103,6 +2103,15 @@ def publish_track_hub(
             raise ValueError("success marker and publication report must differ")
         success_marker.unlink(missing_ok=True)
     validation = _read_json(validation_report_path)
+    expected_validation_scope = (
+        "hub_metadata_only"
+        if metadata_only
+        else (
+            "new_raw_llr_tracks_only"
+            if manifest["hub_manifest_version"] == 2
+            else "legacy_v1_tracks"
+        )
+    )
     if (
         validation.get("valid") is not True
         or validation.get("artifact_revision") != manifest["artifact_revision"]
@@ -2110,7 +2119,7 @@ def publish_track_hub(
         != manifest.get("raw_llr_artifact_revision")
         or validation.get("hub_manifest_sha256")
         != sha256_file(metadata / "manifest" / "ucsc-hub.json")
-        or (metadata_only and validation.get("validation_scope") != "hub_metadata_only")
+        or validation.get("validation_scope") != expected_validation_scope
     ):
         raise ValueError("local hub validation does not match the rendered hub")
 
