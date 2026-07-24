@@ -498,7 +498,6 @@ def _render_track_db(
                     "graphTypeDefault bar",
                     "maxHeightPixels 100:40:16",
                     "windowingFunction mean+whiskers",
-                    "mouseOverFunction noAverage",
                     f"dataVersion {raw_llr_artifact_revision}",
                     "",
                 ]
@@ -1204,8 +1203,6 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
             raise ValueError("raw-LLR signed colors differ")
         if track_db_text.count("autoScale group") != len(SCORE_SETS):
             raise ValueError("raw-LLR group scaling differs")
-        if track_db_text.count("mouseOverFunction noAverage") != len(SCORE_SETS):
-            raise ValueError("raw-LLR mouse-over settings differ")
     readme = (metadata_root / "README.md").read_text(encoding="utf-8")
     if TRACK_HUB_URL not in readme:
         raise ValueError("dataset card does not link the public UCSC hub")

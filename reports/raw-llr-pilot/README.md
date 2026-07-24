@@ -1,6 +1,6 @@
 # Raw calibrated-LLR production pilot
 
-Status: **production valid; publication pending**
+Status: **production, publication, and public hub validation complete**
 
 The issue #15 pilot exercised the complete generation and finalization path
 for `gpn-star-hg38-v100-200m`. It read only the immutable LLR Parquet shards
@@ -102,6 +102,41 @@ made finalizer cleanup SIGTERM-aware. The successful recovery then used two
 concurrent jobs, 120-minute finalizer limits, and atomic promotion; each
 successful finalizer reclaimed its chromosome inputs before another wave.
 
-The machine-readable details are in [`summary.json`](summary.json). The exact
-candidate digest, immutable Hugging Face revisions, hub validation, and manual
-raw-only UCSC rendering evidence are recorded after their publication steps.
+## Public artifact and hub publication
+
+The approved raw-only publisher added exactly 32 files in one Hugging Face
+commit from `340a04b4ccc95d68ad3be4fc3b08d725f29842e4` to immutable artifact
+revision `47e7f051113abab49f04f43f9107cae2cbbfd34d`. The approved candidate
+digest was
+`173fc9c1db97150a0b6a41585824b187aff12ca6c0bae60f82367d484e554461`.
+Anonymous validation passed 32 identity and 32 HTTP range checks, sent no
+credentials, and checked zero prior v1 files.
+
+The additive 72-track manifest retains the 40 v1 BigWigs at revision
+`5c799b2ec6aa089f0caa8294ae72adb4510f81ae` and pins the new tracks to the
+raw artifact revision above. Its exact approved publication-candidate digest
+was `89e1e88ebcf69d55824eae6c166c256eda29613a5dd44ff86fddf2e2280532c7`.
+One metadata commit published 45 files from the raw artifact revision to hub
+revision `6fbdd6e8754080c08b9db34a78282e6ac04398b7`.
+
+Local and anonymous immutable-revision hub validation both passed
+`hubCheck -noTracks -checkSettings`, 32 HTTP range checks, 32 chromosome
+header checks, and base plus zoom queries for all eight score sets. The scope
+was `new_raw_llr_tracks_only`; the 40 v1 BigWigs were not opened.
+
+UCSC's documented `hgRenderTracks` endpoint returned 16 PNGs at HTTP 200 for
+the exact hub revision: a representative base and zoom view for every score
+set. The URLs explicitly hid entropy and logo, so zero v1 tracks were
+rendered. TrackDb and launch-link validation establish `dense` as the default.
+Because UCSC renders compact quantitative tracks in grayscale, the
+signed-color pass applied a view-only `full` override to the four raw rows.
+Every zoom image contained both exact blue (`0,0,255`) and exact red
+(`255,0,0`) pixels, and visual inspection confirmed separate A/C/G/T rows,
+zero baselines, and signed bars across all eight score sets.
+
+CADD's native `mouseOverFunction noAverage` setting was removed after the
+official public-hub settings validator rejected it as unsupported. The hub
+retains the supported CADD-inspired structure, shared autoscaling, zero line,
+and `mean+whiskers` windowing.
+
+The machine-readable details are in [`summary.json`](summary.json).

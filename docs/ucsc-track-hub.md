@@ -30,8 +30,9 @@ Each model group has three user-facing tracks after the issue #15 extension:
   plots.
 - **Raw calibrated LLR** is a CADD-inspired composite with separate A, C, G,
   and T rows. It defaults to `dense`, shares group scaling, displays the zero
-  line, uses `mean+whiskers` windowing and unaveraged mouse-over values, and
-  colors positive values blue and negative values red.
+  line, uses `mean+whiskers` windowing, and colors positive values blue and
+  negative values red when expanded. UCSC's compact `dense` rendering is
+  grayscale.
 
 The logo follows the established GPN hub colors: A green (`0,128,0`), C blue
 (`0,0,255`), G orange (`255,166,0`), and T red (`255,0,0`). This retains the
@@ -141,6 +142,12 @@ verifies every published hub/control file byte-for-byte without credentials.
 A final manual browser pass still records that each assembly/model group
 renders at base and zoomed-out scales; automation supplements rather than
 replaces that visual check.
+
+CADD's native `mouseOverFunction noAverage` setting is intentionally omitted:
+`hubCheck -noTracks -checkSettings` rejects it as unsupported in public hubs.
+The issue #15 color rendering pass uses a view-only `full` override for the
+four raw rows, while the generated trackDb and launch links retain `dense` as
+their default.
 
 The issue #6 read-only production run passed all of these automated checks for
 6 assemblies, 8 score sets, and 40 tracks. Its counts, representative loci,

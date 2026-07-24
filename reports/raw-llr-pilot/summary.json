@@ -1,7 +1,7 @@
 {
   "report_version": 2,
   "date": "2026-07-23",
-  "status": "production_validated",
+  "status": "published_and_validated",
   "selected_method": "direct",
   "value_decimals": 3,
   "pilot": {
@@ -171,9 +171,58 @@
     "temporary_bigwig_count_after_cleanup": 0
   },
   "publication": {
-    "performed": false,
-    "candidate_sha256": null,
-    "raw_llr_artifact_revision": null,
-    "hub_revision": null
+    "performed": true,
+    "approval_evidence_url": "https://github.com/gonzalobenegas/gpn-star-scores/issues/15#issuecomment-5064658384",
+    "candidate_sha256": "173fc9c1db97150a0b6a41585824b187aff12ca6c0bae60f82367d484e554461",
+    "base_revision": "340a04b4ccc95d68ad3be4fc3b08d725f29842e4",
+    "raw_llr_artifact_revision": "47e7f051113abab49f04f43f9107cae2cbbfd34d",
+    "incremental_bytes": 198020546809,
+    "published_file_count": 32,
+    "single_commit": true,
+    "anonymous_validation": {
+      "valid": true,
+      "credentials_sent": false,
+      "identity_check_count": 32,
+      "http_range_count": 32,
+      "validation_scope": "new_raw_llr_tracks_only",
+      "existing_v1_files_checked": 0
+    },
+    "hub": {
+      "approval_evidence_url": "https://github.com/gonzalobenegas/gpn-star-scores/issues/15#issuecomment-5065306897",
+      "candidate_sha256": "89e1e88ebcf69d55824eae6c166c256eda29613a5dd44ff86fddf2e2280532c7",
+      "base_revision": "47e7f051113abab49f04f43f9107cae2cbbfd34d",
+      "hub_revision": "6fbdd6e8754080c08b9db34a78282e6ac04398b7",
+      "published_file_count": 45,
+      "manifest_track_count": 72,
+      "retained_v1_artifact_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+      "single_commit": true,
+      "validation": {
+        "valid": true,
+        "credentials_sent": false,
+        "hub_check_settings_passed": true,
+        "http_range_count": 32,
+        "chromosome_check_count": 32,
+        "representative_score_set_count": 8,
+        "validation_scope": "new_raw_llr_tracks_only",
+        "existing_v1_bigwigs_revalidated": false
+      }
+    },
+    "ucsc_rendering": {
+      "valid": true,
+      "endpoint": "https://genome.ucsc.edu/cgi-bin/hgRenderTracks",
+      "hub_revision": "6fbdd6e8754080c08b9db34a78282e6ac04398b7",
+      "render_count": 16,
+      "score_set_count": 8,
+      "scales": [
+        "base",
+        "zoom"
+      ],
+      "configured_default_visibility": "dense",
+      "render_visibility_override": "full_for_signed_color_validation",
+      "existing_v1_tracks_rendered": 0,
+      "all_http_status_200": true,
+      "all_content_type_png": true,
+      "all_zoom_views_contain_blue_and_red": true
+    }
   }
 }

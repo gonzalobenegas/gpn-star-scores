@@ -1,8 +1,9 @@
 # GPN-Star genome-wide scores
 
 Workflows and release metadata for validating and publishing the GPN-Star
-genome-wide scores. The public data release will live at
-`songlab/gpn-star-scores` on Hugging Face.
+genome-wide scores. The public data release is
+[`songlab/gpn-star-scores`](https://huggingface.co/datasets/songlab/gpn-star-scores)
+on Hugging Face.
 
 ## Development setup
 
@@ -114,10 +115,11 @@ immutable LLR Parquet shards and produces `llr_A`, `llr_C`, `llr_G`, and
 `abs_llr_calibrated` is not used or derived. Generation, validation, and
 publication are isolated from the 40 immutable v1 BigWigs, so the post-v1
 workflow neither rebuilds nor revalidates them.
-After publication the public browser catalog contains 72 BigWigs: the 40 v1
-tracks retain their original immutable artifact revision, and the 32 raw LLR
-tracks use the additive artifact revision recorded in the release and hub
-manifests.
+The public browser catalog contains 72 BigWigs: the 40 v1 tracks retain
+immutable artifact revision `5c799b2ec6aa089f0caa8294ae72adb4510f81ae`,
+and the 32 raw LLR tracks use additive artifact revision
+`47e7f051113abab49f04f43f9107cae2cbbfd34d`. The published dataset card and
+hub metadata are at revision `6fbdd6e8754080c08b9db34a78282e6ac04398b7`.
 The measured issue #15 resource and validation evidence is recorded in
 [`reports/raw-llr-pilot`](reports/raw-llr-pilot/README.md).
 
@@ -142,7 +144,9 @@ multi-assembly hub with eight model groups. Each group contains a conventional
 one-dimensional entropy signal, one stacked A/C/G/T sequence-logo view, and
 the issue #15 raw signed-LLR composite after that extension is enabled.
 Entropy and raw LLR default to `dense`. Raw positive values are blue and raw
-negative values red; the derived sequence logo retains nucleotide colors.
+negative values red when the quantitative rows are expanded; UCSC's compact
+`dense` rendering is grayscale. The derived sequence logo retains nucleotide
+colors.
 Existing v1 URLs stay pinned to their immutable issue #4 revision, while the
 32 additive URLs pin their own artifact revision. Extension validation checks
 only the new BigWigs; `hubCheck` still validates the complete hub structure.
@@ -152,7 +156,8 @@ The committed
 [`reports/ucsc-track-hub-preflight`](reports/ucsc-track-hub-preflight/README.md)
 records the passing production preflight, measured resources, anonymous public
 validation, and base/zoom browser rendering for all eight model groups. The
-public hub is available from the dataset's stable `resolve/main/ucsc/hub.txt`
+public hub is available from the dataset's stable
+[`resolve/main/ucsc/hub.txt`](https://huggingface.co/datasets/songlab/gpn-star-scores/resolve/main/ucsc/hub.txt)
 entry URL, while all 40 BigWigs remain pinned to the immutable issue #4
 artifact revision.
 

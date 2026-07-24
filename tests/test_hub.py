@@ -296,7 +296,7 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     assert hg38.count("alwaysZero on") == 3
     assert hg38.count("yLineMark 0") == 3
     assert hg38.count("windowingFunction mean+whiskers") == 3
-    assert hg38.count("mouseOverFunction noAverage") == 3
+    assert "mouseOverFunction" not in hg38
     assert hg38.count(f"color {RAW_LLR_POSITIVE_COLOR}") == 15
     assert hg38.count(f"altColor {RAW_LLR_NEGATIVE_COLOR}") == 12
     assert hg38.count("bigDataUrl ") == 27
