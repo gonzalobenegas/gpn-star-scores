@@ -1,0 +1,228 @@
+{
+  "report_version": 2,
+  "date": "2026-07-23",
+  "status": "published_and_validated",
+  "selected_method": "direct",
+  "value_decimals": 3,
+  "pilot": {
+    "score_set": "gpn-star-hg38-v100-200m",
+    "ucsc_assembly": "hg38",
+    "representative_chromosome": {
+      "chromosome": "22",
+      "run_id": "gpn-star_fdfa9e12-ff41-45be-9a6e-319dd77de56b",
+      "job_id": 3350217,
+      "elapsed_seconds": 116,
+      "peak_rss_mib": 1878.8008,
+      "cpu_efficiency_percent": 90.731,
+      "position_count": 39153633
+    },
+    "whole_score_set": {
+      "run_id": "gpn-star_4dea360a-2dc7-4c67-b52c-0fe6629888d7",
+      "chromosome_job_range": "3350219-3350242",
+      "finalizer_job_range": "3350246-3350249",
+      "chromosome_elapsed_seconds_range": [208, 922],
+      "chromosome_peak_rss_mib_range": [1209.1055, 10906.6484],
+      "chromosome_cpu_efficiency_percent_range": [22.8782, 76.9355],
+      "finalizer_elapsed_seconds_range": [2196, 2243],
+      "finalizer_peak_rss_mib_range": [24418.4219, 25442.7305],
+      "finalizer_cpu_efficiency_percent_range": [69.5135, 70.6636]
+    },
+    "validation": {
+      "valid": true,
+      "track_count": 4,
+      "bases_covered_per_track": 2934747438,
+      "zoom_levels": 10,
+      "sample_check_count": 98304,
+      "gap_check_count": 96,
+      "source_matrix_sign_counts": {
+        "negative": 4814818526,
+        "zero": 2940635987,
+        "positive": 3983535239
+      },
+      "total_bytes": 45192045668
+    }
+  },
+  "production": {
+    "run_id": "gpn-star_8a5c52e4-a239-404b-a516-de97e343555b",
+    "concurrency": 2,
+    "finalizers": {
+      "job_ids": [
+        3350761,
+        3350762,
+        3350848,
+        3350849,
+        3350950,
+        3350960,
+        3350970,
+        3351041,
+        3351063,
+        3351109,
+        3351111,
+        3351159,
+        3351162,
+        3351308
+      ],
+      "job_count": 14,
+      "elapsed_seconds_range": [735, 2139],
+      "peak_rss_mib_range": [8972.8477, 25007.2969],
+      "cpu_efficiency_percent_range": [76.2, 90.2],
+      "all_completed": true
+    },
+    "focused_audits": {
+      "job_ids": [
+        3351022,
+        3351056,
+        3351098,
+        3351103,
+        3351153,
+        3351154,
+        3351158,
+        3351260,
+        3351297,
+        3351314,
+        3351328,
+        3351334,
+        3351339,
+        3351461
+      ],
+      "job_count": 14,
+      "elapsed_seconds_range": [68, 434],
+      "peak_rss_mib_range": [4090.5781, 11288.5586],
+      "all_completed": true
+    },
+    "aggregate": {
+      "job_id": 3351468,
+      "elapsed_seconds": 9,
+      "peak_rss_mib": 0.6328,
+      "completed": true
+    },
+    "cleanup": {
+      "final_bigwig_count": 32,
+      "private_sibling_count": 0,
+      "scratch_gib_after_completion": 989
+    }
+  },
+  "operational_recovery": {
+    "initial_run": {
+      "run_id": "gpn-star_90c42704-5e00-47d6-885f-a1a8ae072f94",
+      "concurrency": 64,
+      "failure": "Chromosome jobs hit the 30-minute limit under shared-filesystem contention.",
+      "resolution": "Retain a 60-minute chromosome-build limit."
+    },
+    "resume_run": {
+      "run_id": "gpn-star_c9734eb3-d4cb-4a09-9db4-3eb2adb0b4b3",
+      "concurrency": 24,
+      "result": "Chromosome builds completed; concurrent finalizers exhausted the 1024 GiB scratch quota."
+    },
+    "quota_diagnostic": {
+      "job_id": 3350715,
+      "error": "OSError: [Errno 122] Disk quota exceeded"
+    },
+    "stale_private_sibling_cleanup": {
+      "directory_count": 16,
+      "approximate_gib": 35,
+      "scope": "exact unpromoted private finalizer siblings only"
+    },
+    "cancellation_cleanup_fix_commit": "39a4603",
+    "successful_policy": {
+      "concurrency": 2,
+      "atomic_promotion": true,
+      "sigterm_cleanup": true,
+      "finalizer_runtime_minutes": 120
+    }
+  },
+  "retained_resources": {
+    "build_chromosome": {
+      "mem_mb": 16384,
+      "runtime_minutes": 60,
+      "disk_mb": 16384
+    },
+    "concatenate": {
+      "mem_mb": 49152,
+      "runtime_minutes": 120,
+      "disk_mb": 24576
+    },
+    "audit": {
+      "mem_mb": 16384,
+      "runtime_minutes": 30,
+      "disk_mb": 1024
+    },
+    "aggregate": {
+      "mem_mb": 4096,
+      "runtime_minutes": 30,
+      "disk_mb": 1024
+    }
+  },
+  "validation": {
+    "valid": true,
+    "validation_scope": "new_raw_llr_tracks_only",
+    "existing_v1_files_checked": 0,
+    "track_count": 32,
+    "total_bytes": 198020546809,
+    "sample_check_count": 593920,
+    "gap_check_count": 544,
+    "reference_zero_baseline": true,
+    "abs_llr_calibrated_used": false,
+    "source_matrix_sign_counts": {
+      "negative": 19339670405,
+      "zero": 12865669875,
+      "positive": 19196780608
+    },
+    "temporary_bigwig_count_after_cleanup": 0
+  },
+  "publication": {
+    "performed": true,
+    "approval_evidence_url": "https://github.com/gonzalobenegas/gpn-star-scores/issues/15#issuecomment-5064658384",
+    "candidate_sha256": "173fc9c1db97150a0b6a41585824b187aff12ca6c0bae60f82367d484e554461",
+    "base_revision": "340a04b4ccc95d68ad3be4fc3b08d725f29842e4",
+    "raw_llr_artifact_revision": "47e7f051113abab49f04f43f9107cae2cbbfd34d",
+    "incremental_bytes": 198020546809,
+    "published_file_count": 32,
+    "single_commit": true,
+    "anonymous_validation": {
+      "valid": true,
+      "credentials_sent": false,
+      "identity_check_count": 32,
+      "http_range_count": 32,
+      "validation_scope": "new_raw_llr_tracks_only",
+      "existing_v1_files_checked": 0
+    },
+    "hub": {
+      "approval_evidence_url": "https://github.com/gonzalobenegas/gpn-star-scores/issues/15#issuecomment-5065306897",
+      "candidate_sha256": "89e1e88ebcf69d55824eae6c166c256eda29613a5dd44ff86fddf2e2280532c7",
+      "base_revision": "47e7f051113abab49f04f43f9107cae2cbbfd34d",
+      "hub_revision": "6fbdd6e8754080c08b9db34a78282e6ac04398b7",
+      "published_file_count": 45,
+      "manifest_track_count": 72,
+      "retained_v1_artifact_revision": "5c799b2ec6aa089f0caa8294ae72adb4510f81ae",
+      "single_commit": true,
+      "validation": {
+        "valid": true,
+        "credentials_sent": false,
+        "hub_check_settings_passed": true,
+        "http_range_count": 32,
+        "chromosome_check_count": 32,
+        "representative_score_set_count": 8,
+        "validation_scope": "new_raw_llr_tracks_only",
+        "existing_v1_bigwigs_revalidated": false
+      }
+    },
+    "ucsc_rendering": {
+      "valid": true,
+      "endpoint": "https://genome.ucsc.edu/cgi-bin/hgRenderTracks",
+      "hub_revision": "6fbdd6e8754080c08b9db34a78282e6ac04398b7",
+      "render_count": 16,
+      "score_set_count": 8,
+      "scales": [
+        "base",
+        "zoom"
+      ],
+      "configured_default_visibility": "dense",
+      "render_visibility_override": "full_for_signed_color_validation",
+      "existing_v1_tracks_rendered": 0,
+      "all_http_status_200": true,
+      "all_content_type_png": true,
+      "all_zoom_views_contain_blue_and_red": true
+    }
+  }
+}

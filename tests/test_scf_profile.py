@@ -55,6 +55,7 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
         "validate_source_shard",
         "rewrite_parquet_shard",
         "build_chromosome_bigwig",
+        "build_raw_llr_chromosome",
     } == array_rules
 
     four_thread_rules = {
@@ -75,6 +76,10 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
         "aggregate_validation",
         "render_report",
         "render_bigwig_report",
+        "build_raw_llr_chromosome",
+        "concatenate_raw_llr_bigwig",
+        "audit_final_raw_llr_bigwig",
+        "aggregate_raw_llr_validation",
     }
     assert all(profile["set-threads"][rule] == 4 for rule in four_thread_rules)
     assert all(profile["set-threads"][rule] == 1 for rule in one_thread_rules)
@@ -87,6 +92,10 @@ def test_scf_profile_encodes_partition_and_execution_policy() -> None:
     assert resources["audit_final_bigwig"]["slurm_partition"] == "epurdom"
     assert resources["aggregate_validation"]["slurm_partition"] == "epurdom"
     assert resources["render_bigwig_report"]["slurm_partition"] == "epurdom"
+    assert resources["build_raw_llr_chromosome"]["slurm_partition"] == "epurdom"
+    assert resources["concatenate_raw_llr_bigwig"]["slurm_partition"] == "epurdom"
+    assert resources["audit_final_raw_llr_bigwig"]["slurm_partition"] == "epurdom"
+    assert resources["aggregate_raw_llr_validation"]["slurm_partition"] == "epurdom"
     partitions = {
         rule_resources["slurm_partition"] for rule_resources in resources.values()
     }

@@ -108,6 +108,23 @@ uv run --locked python -m gpn_star_scores.release validate-existing \
   --revision 40_CHARACTER_COMMIT_SHA
 ```
 
+## Post-v1 raw-LLR extension
+
+Issue #15 publishes 32 additional `llr_A`, `llr_C`, `llr_G`, and `llr_T`
+BigWigs through the separate
+[`raw calibrated-LLR workflow`](raw-calibrated-llr.md). That publisher uses
+one optimistic commit containing only the new files. It neither uploads
+Parquet nor changes the 40 v1 BigWigs. Its approval is bound to the exact
+current public revision, incremental byte total, and candidate digest.
+Anonymous validation checks only the new LFS identities and byte-range
+responses. The README and UCSC metadata are updated afterward through the
+hub's own approval-gated commit, with existing v1 URLs left pinned to their
+original artifact revision.
+The metadata commit also replaces `manifest/release.json` with a v2,
+72-BigWig catalog. Each record names its immutable artifact revision; the
+manifest explicitly records that its 40 v1 identities reuse trusted release
+evidence while only the 32 raw-LLR identities were newly validated.
+
 The downstream [issue #6 workflow](ucsc-track-hub.md) owns `ucsc/`, `hubCheck`,
 browser rendering, and representative browser-value comparisons. Its files can
 be added to the same public repository without changing the 16 explicit table

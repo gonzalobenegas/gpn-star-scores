@@ -325,9 +325,45 @@ def render_dataset_card(
     release_manifest: Mapping[str, Any],
     *,
     hub_launch_links: Sequence[Mapping[str, str]] | None = None,
+    raw_llr_validation: Mapping[str, Any] | None = None,
 ) -> str:
     """Render the public dataset card and its explicit data-file globs."""
 
+    raw_llr_enabled = raw_llr_validation is not None
+    bigwig = release_manifest.get("bigwig")
+    artifact_revisions = (
+        bigwig.get("artifact_revisions") if isinstance(bigwig, Mapping) else None
+    )
+    v1_provenance = (
+        artifact_revisions.get("v1")
+        if isinstance(artifact_revisions, Mapping)
+        else None
+    )
+    raw_llr_provenance = (
+        artifact_revisions.get("raw_calibrated_llr")
+        if isinstance(artifact_revisions, Mapping)
+        else None
+    )
+    if raw_llr_enabled and (
+        raw_llr_validation.get("report_version") != 1
+        or raw_llr_validation.get("product") != "raw_calibrated_llr"
+        or raw_llr_validation.get("valid") is not True
+        or raw_llr_validation.get("track_count") != 32
+        or raw_llr_validation.get("value_decimals") != 3
+        or raw_llr_validation.get("reference_zero_baseline") is not True
+        or raw_llr_validation.get("abs_llr_calibrated_used") is not False
+        or release_manifest.get("release_manifest_version") != 2
+        or not isinstance(bigwig, Mapping)
+        or bigwig.get("file_count") != 72
+        or not isinstance(v1_provenance, Mapping)
+        or v1_provenance.get("track_count") != 40
+        or v1_provenance.get("revalidated") is not False
+        or not isinstance(v1_provenance.get("revision"), str)
+        or not isinstance(raw_llr_provenance, Mapping)
+        or raw_llr_provenance.get("track_count") != 32
+        or not isinstance(raw_llr_provenance.get("revision"), str)
+    ):
+        raise ValueError("dataset card requires valid raw-LLR extension metadata")
     configs = release_manifest["dataset_configs"]
     total_rows = sum(record["rows"] for record in release_manifest["parquet"]["files"])
     frontmatter = [
@@ -379,6 +415,40 @@ def render_dataset_card(
 {rows}
 """.format(rows=chr(10).join(launch_rows))
 
+    raw_llr_interpretation = ""
+    raw_llr_browser = ""
+    raw_llr_layout = ""
+    raw_llr_manifest = ""
+    raw_llr_catalog = ""
+    if raw_llr_enabled:
+        raw_llr_interpretation = """
+
+The four additional `llr_A`, `llr_C`, `llr_G`, and `llr_T` BigWigs retain the
+signed `llr_calibrated` values for alternate alleles and use an explicit zero
+for the reference allele. They do not use or derive `abs_llr_calibrated`.
+These are three-decimal Float32 browser views; Parquet remains canonical.
+"""
+        raw_llr_browser = """
+The LLR composite follows the CADD organization of separate allele rows,
+adapted for signed scores: positive values are blue, negative values are red,
+all four rows share their scale, and the zero line remains visible. Entropy
+defaults to the compact `dense` view; LLR defaults to `full` so its signed
+colors are visible.
+"""
+        raw_llr_catalog = f"""
+The expanded public catalog contains **72 BigWigs**: the 40 immutable v1
+entropy/logo artifacts remain pinned to
+`{v1_provenance["revision"]}`, while the 32 LLR artifacts are pinned to
+`{raw_llr_provenance["revision"]}`.
+"""
+        raw_llr_layout = ",llr_A,llr_C,llr_G,llr_T"
+        raw_llr_manifest = (
+            " Focused evidence for the 32 additive tracks is in "
+            "[`manifest/raw-llr-validation.json`]"
+            "(manifest/raw-llr-validation.json); it does not repeat validation "
+            "of the 40 immutable v1 BigWigs."
+        )
+
     body = f"""
 
 # GPN-Star genome-wide scores
@@ -422,6 +492,8 @@ Float64 softmax produces base weights, and each height is
 `p(base) * (2 - H)` for base-2 entropy `H`. Final visualization values are
 stored to three decimal places; Parquet remains the canonical full-precision
 product.
+{raw_llr_interpretation}
+{raw_llr_catalog}
 
 ## UCSC Genome Browser
 
@@ -432,13 +504,14 @@ entropy signal and one stacked A/C/G/T sequence-logo view. The hub covers
 `GCF_000001735.4`, and `mm39`; its BigWig URLs pin an immutable
 artifact revision even though this entry URL follows the current validated hub
 metadata.
+{raw_llr_browser}
 {launch_section}
 
 ## Repository layout
 
 ```text
 data/<score-set>/<entropy|llr>/*.parquet
-bigwig/<score-set>/{{entropy,A,C,G,T}}.bw
+bigwig/<score-set>/{{entropy,A,C,G,T{raw_llr_layout}}}.bw
 manifest/
 ucsc/  # added and validated by the track-hub release workflow
 README.md
@@ -447,6 +520,7 @@ README.md
 SHA-256 checksums, byte sizes, row counts, and validation provenance are in
 [`manifest/release.json`](manifest/release.json). Pin production analyses to
 the immutable Hugging Face commit SHA recorded by the publication report.
+{raw_llr_manifest}
 
 ## Polars examples
 

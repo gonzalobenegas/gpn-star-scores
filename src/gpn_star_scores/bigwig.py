@@ -71,6 +71,12 @@ class _LogoBatch:
     heights: np.ndarray
 
 
+@dataclass(frozen=True)
+class _RawLlrBatch:
+    positions: np.ndarray
+    values: np.ndarray
+
+
 def calibrated_llr_logo_heights(
     reference: str, alternate_scores: Mapping[str, float]
 ) -> dict[str, np.float32]:
@@ -102,6 +108,29 @@ def calibrated_llr_logo_heights(
     return dict(zip(BASES, heights, strict=True))
 
 
+def calibrated_raw_llr_values(
+    reference: str, alternate_scores: Mapping[str, float]
+) -> dict[str, np.float32]:
+    """Return A/C/G/T calibrated LLR values with a reference-zero baseline."""
+
+    reference_index = _base_index(reference, "reference")
+    expected_alternates = set(BASES) - {reference}
+    if set(alternate_scores) != expected_alternates:
+        raise BigWigValidationError(
+            "alternate scores must contain each non-reference base exactly once"
+        )
+
+    values = np.zeros(len(BASES), dtype=np.float32)
+    for base, score in alternate_scores.items():
+        value = np.float32(score)
+        if not np.isfinite(value):
+            raise BigWigValidationError("calibrated LLR values must be finite")
+        values[_base_index(base, "alternate")] = value
+    if values[reference_index] != np.float32(0.0):  # pragma: no cover
+        raise AssertionError("reference calibrated LLR was not zero")
+    return dict(zip(BASES, values, strict=True))
+
+
 def iter_entropy_track_batches(
     parquet_paths: Sequence[str | Path],
     chromosome: ChromosomeSpec,
@@ -127,6 +156,20 @@ def iter_logo_track_batches(
         _validated_input_paths(parquet_paths), chromosome, batch_size=batch_size
     ):
         yield batch.positions, batch.heights
+
+
+def iter_raw_llr_track_batches(
+    parquet_paths: Sequence[str | Path],
+    chromosome: ChromosomeSpec,
+    *,
+    batch_size: int = 262_144,
+) -> Iterable[tuple[np.ndarray, np.ndarray]]:
+    """Yield positions and raw A/C/G/T Float32 calibrated-LLR matrices."""
+
+    for batch in _iter_raw_llr_batches(
+        _validated_input_paths(parquet_paths), chromosome, batch_size=batch_size
+    ):
+        yield batch.positions, batch.values
 
 
 def write_entropy_bigwig(
@@ -228,6 +271,78 @@ def write_logo_bigwigs(
                 else first_position
             )
             last_position = int(logo_batch.positions[-1])
+
+        if count == 0:
+            raise BigWigValidationError("LLR input contains no positions")
+        for writer in writers.values():
+            writer.close()
+        writers.clear()
+
+        for base in BASES:
+            validate_bigwig(
+                temporary[base],
+                header_sizes,
+                expected_bases_covered=count,
+            )
+        for base in BASES:
+            os.replace(temporary[base], outputs[base])
+    except BaseException:
+        for writer in writers.values():
+            writer.close()
+        for path in temporary.values():
+            path.unlink(missing_ok=True)
+        raise
+
+    assert first_position is not None
+    assert last_position is not None
+    return BigWigWriteStats(
+        source_chrom=chromosome.source_name,
+        ucsc_chrom=chromosome.ucsc_name,
+        position_count=count,
+        first_position=first_position,
+        last_position=last_position,
+    )
+
+
+def write_raw_llr_bigwigs(
+    parquet_paths: Sequence[str | Path],
+    output_paths: Mapping[str, str | Path],
+    chromosome: ChromosomeSpec,
+    *,
+    batch_size: int = 262_144,
+    header_chromosome_sizes: Mapping[str, int] | None = None,
+) -> BigWigWriteStats:
+    """Stream one chromosome's raw calibrated LLRs into four BigWigs."""
+
+    paths = _validated_input_paths(parquet_paths)
+    header_sizes = _validated_header_sizes(chromosome, header_chromosome_sizes)
+    outputs = _validated_base_outputs(output_paths, role="raw LLR")
+    temporary = {base: _temporary_sibling(path) for base, path in outputs.items()}
+    writers: dict[str, Any] = {}
+    count = 0
+    first_position: int | None = None
+    last_position: int | None = None
+
+    try:
+        for base in BASES:
+            writers[base] = _open_writer(temporary[base], header_sizes)
+        for raw_batch in _iter_raw_llr_batches(
+            paths, chromosome, batch_size=batch_size
+        ):
+            for base_index, base in enumerate(BASES):
+                _add_sparse_values(
+                    writers[base],
+                    chromosome.ucsc_name,
+                    raw_batch.positions,
+                    raw_batch.values[:, base_index],
+                )
+            count += len(raw_batch.positions)
+            first_position = (
+                int(raw_batch.positions[0])
+                if first_position is None
+                else first_position
+            )
+            last_position = int(raw_batch.positions[-1])
 
         if count == 0:
             raise BigWigValidationError("LLR input contains no positions")
@@ -443,6 +558,16 @@ def _iter_entropy_batches(
 def _iter_logo_batches(
     paths: Sequence[Path], chromosome: ChromosomeSpec, *, batch_size: int
 ) -> Iterable[_LogoBatch]:
+    for batch in _iter_raw_llr_batches(paths, chromosome, batch_size=batch_size):
+        yield _LogoBatch(
+            batch.positions,
+            _logo_heights_from_logits(batch.values.astype(np.float64)),
+        )
+
+
+def _iter_raw_llr_batches(
+    paths: Sequence[Path], chromosome: ChromosomeSpec, *, batch_size: int
+) -> Iterable[_RawLlrBatch]:
     pending_positions = np.empty(0, dtype=np.int64)
     pending_references = np.empty(0, dtype=np.int8)
     pending_alternates = np.empty(0, dtype=np.int8)
@@ -480,7 +605,7 @@ def _iter_logo_batches(
         changes = np.flatnonzero(positions[:-1] != positions[1:])
         split = int(changes[-1] + 1) if len(changes) else 0
         if split:
-            yield _make_logo_batch(
+            yield _make_raw_llr_batch(
                 positions[:split],
                 references[:split],
                 alternates[:split],
@@ -492,7 +617,7 @@ def _iter_logo_batches(
         pending_scores = scores[split:]
 
     if len(pending_positions):
-        yield _make_logo_batch(
+        yield _make_raw_llr_batch(
             pending_positions,
             pending_references,
             pending_alternates,
@@ -500,12 +625,12 @@ def _iter_logo_batches(
         )
 
 
-def _make_logo_batch(
+def _make_raw_llr_batch(
     positions: np.ndarray,
     references: np.ndarray,
     alternates: np.ndarray,
     scores: np.ndarray,
-) -> _LogoBatch:
+) -> _RawLlrBatch:
     group_starts = np.concatenate(
         ([0], np.flatnonzero(positions[:-1] != positions[1:]) + 1)
     )
@@ -533,11 +658,12 @@ def _make_logo_batch(
             "alternate bases must be the three unique non-reference bases"
         )
 
-    logits = np.zeros((len(grouped_positions), len(BASES)), dtype=np.float64)
+    values = np.zeros((len(grouped_positions), len(BASES)), dtype=np.float32)
     row_indices = np.repeat(np.arange(len(grouped_positions)), 3)
-    logits[row_indices, grouped_alternates.ravel()] = grouped_scores.ravel()
-    heights = _logo_heights_from_logits(logits)
-    return _LogoBatch(grouped_positions[:, 0], heights)
+    values[row_indices, grouped_alternates.ravel()] = grouped_scores.ravel()
+    if not np.all(values[np.arange(len(values)), reference_indices] == 0):
+        raise AssertionError("reference calibrated LLR was not zero")
+    return _RawLlrBatch(grouped_positions[:, 0], values)
 
 
 def _logo_heights_from_logits(logits: np.ndarray) -> np.ndarray:
@@ -737,9 +863,17 @@ def _validated_header_sizes(
 def _validated_logo_outputs(
     outputs: Mapping[str, str | Path],
 ) -> dict[str, Path]:
+    return _validated_base_outputs(outputs, role="logo")
+
+
+def _validated_base_outputs(
+    outputs: Mapping[str, str | Path],
+    *,
+    role: str,
+) -> dict[str, Path]:
     if set(outputs) != set(BASES):
-        raise ValueError(f"logo outputs must have exactly these keys: {BASES!r}")
+        raise ValueError(f"{role} outputs must have exactly these keys: {BASES!r}")
     result = {base: Path(outputs[base]) for base in BASES}
     if len(set(result.values())) != len(BASES):
-        raise ValueError("logo output paths must be distinct")
+        raise ValueError(f"{role} output paths must be distinct")
     return result

@@ -8,7 +8,8 @@ slurm-array-jobs: >-
   validate_score_shard,
   validate_source_shard,
   rewrite_parquet_shard,
-  build_chromosome_bigwig
+  build_chromosome_bigwig,
+  build_raw_llr_chromosome
 slurm-array-limit: 64
 latency-wait: 60
 slurm-logdir: logs/slurm
@@ -35,6 +36,10 @@ set-threads:
   aggregate_validation: 1
   render_report: 1
   render_bigwig_report: 1
+  build_raw_llr_chromosome: 1
+  concatenate_raw_llr_bigwig: 1
+  audit_final_raw_llr_bigwig: 1
+  aggregate_raw_llr_validation: 1
 
 set-resources:
   scf_smoke_chromosome:
@@ -68,4 +73,12 @@ set-resources:
   render_report:
     slurm_partition: high
   render_bigwig_report:
+    slurm_partition: epurdom
+  build_raw_llr_chromosome:
+    slurm_partition: epurdom
+  concatenate_raw_llr_bigwig:
+    slurm_partition: epurdom
+  audit_final_raw_llr_bigwig:
+    slurm_partition: epurdom
+  aggregate_raw_llr_validation:
     slurm_partition: epurdom

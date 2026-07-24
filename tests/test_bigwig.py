@@ -11,11 +11,13 @@ from gpn_star_scores.bigwig import (
     BigWigValidationError,
     ChromosomeSpec,
     calibrated_llr_logo_heights,
+    calibrated_raw_llr_values,
     validate_bigwig,
     write_entropy_bigwig,
     write_entropy_wig,
     write_logo_bigwigs,
     write_logo_wigs,
+    write_raw_llr_bigwigs,
 )
 
 
@@ -38,6 +40,26 @@ def test_equal_llrs_produce_zero_information() -> None:
 def test_logo_requires_exact_non_reference_alternates() -> None:
     with pytest.raises(BigWigValidationError, match="non-reference"):
         calibrated_llr_logo_heights("A", {"A": 1.0, "C": 2.0, "G": 3.0})
+
+
+def test_raw_llr_values_preserve_alternates_and_insert_reference_zero() -> None:
+    values = calibrated_raw_llr_values(
+        "C",
+        {
+            "A": np.float32(-1.25),
+            "G": np.float32(2.5),
+            "T": np.float32(0.125),
+        },
+    )
+
+    assert tuple(values) == BASES
+    assert all(value.dtype == np.float32 for value in values.values())
+    assert values == {
+        "A": np.float32(-1.25),
+        "C": np.float32(0.0),
+        "G": np.float32(2.5),
+        "T": np.float32(0.125),
+    }
 
 
 def test_entropy_writer_converts_coordinates_and_preserves_gaps(
@@ -110,6 +132,59 @@ def test_logo_writer_handles_alt_order_gaps_and_split_positions(
             values = bigwig.values("chr1", 0, 5)
         assert values[1] == pytest.approx(float(expected[base]), abs=1e-7)
         assert np.isnan(values[2:4]).all()
+
+
+def test_raw_llr_writer_preserves_signed_values_reference_zero_and_gaps(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "llr.parquet"
+    outputs = {base: tmp_path / f"llr_{base}.bw" for base in BASES}
+    table = pa.table(
+        {
+            "chrom": pa.array(["1"] * 9),
+            "pos": pa.array([1, 1, 1, 2, 2, 2, 5, 5, 5], type=pa.int64()),
+            "ref": pa.array(["A"] * 3 + ["C"] * 3 + ["T"] * 3),
+            "alt": pa.array(["T", "C", "G", "G", "A", "T", "C", "G", "A"]),
+            "llr_calibrated": pa.array(
+                [-0.1, 0.2, 0.3, -0.5, 1.0, 0.0, 0.4, -0.2, 0.8],
+                type=pa.float32(),
+            ),
+            "abs_llr_calibrated": pa.array([99.0] * 9, type=pa.float32()),
+        }
+    )
+    pq.write_table(table, source, row_group_size=4)
+
+    stats = write_raw_llr_bigwigs(
+        [source],
+        outputs,
+        ChromosomeSpec("1", "chr1", 5),
+        batch_size=4,
+        header_chromosome_sizes={"chr1": 5, "chr2": 7},
+    )
+
+    assert stats.position_count == 3
+    assert (stats.first_position, stats.last_position) == (1, 5)
+    expected_by_position = {
+        1: {"A": 0.0, "C": 0.2, "G": 0.3, "T": -0.1},
+        2: {"A": 1.0, "C": 0.0, "G": -0.5, "T": 0.0},
+        5: {"A": 0.8, "C": 0.4, "G": -0.2, "T": 0.0},
+    }
+    for base, output in outputs.items():
+        summary = validate_bigwig(
+            output,
+            {"chr1": 5, "chr2": 7},
+            expected_bases_covered=3,
+        )
+        assert summary.zoom_levels >= 1
+        with pyBigWig.open(str(output)) as bigwig:
+            values = bigwig.values("chr1", 0, 5)
+        assert values[0] == pytest.approx(expected_by_position[1][base])
+        assert values[1] == pytest.approx(expected_by_position[2][base])
+        assert np.isnan(values[2:4]).all()
+        assert values[4] == pytest.approx(expected_by_position[5][base])
+        assert all(
+            value != pytest.approx(99.0) for value in values if not np.isnan(value)
+        )
 
 
 def test_variable_step_wig_baselines_preserve_float32_values(tmp_path: Path) -> None:
@@ -208,3 +283,36 @@ def test_logo_writer_rejects_incomplete_position(tmp_path: Path) -> None:
             {base: tmp_path / f"{base}.bw" for base in BASES},
             ChromosomeSpec("1", "chr1", 2),
         )
+
+
+def test_raw_llr_writer_rejects_duplicate_alternate_without_replacing_outputs(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "llr.parquet"
+    outputs = {base: tmp_path / f"llr_{base}.bw" for base in BASES}
+    for output in outputs.values():
+        output.write_bytes(b"existing artifact")
+    pq.write_table(
+        pa.table(
+            {
+                "chrom": pa.array(["1"] * 3),
+                "pos": pa.array([1, 1, 1], type=pa.int64()),
+                "ref": pa.array(["A"] * 3),
+                "alt": pa.array(["C", "C", "T"]),
+                "llr_calibrated": pa.array([0.1, 0.2, 0.3], type=pa.float32()),
+            }
+        ),
+        source,
+    )
+
+    with pytest.raises(BigWigValidationError, match="three unique non-reference"):
+        write_raw_llr_bigwigs(
+            [source],
+            outputs,
+            ChromosomeSpec("1", "chr1", 2),
+        )
+
+    assert all(
+        output.read_bytes() == b"existing artifact" for output in outputs.values()
+    )
+    assert not list(tmp_path.glob(".llr_*.bw.*.tmp"))

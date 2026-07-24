@@ -1,0 +1,49 @@
+scratch_root: /shared/project/scratch/gpn-star-scores
+
+raw_llr:
+  enabled: true
+  # Immutable issue #8 staged source and accepted v1 evidence.
+  source_root: /shared/project/staged/gpn-star-scores
+  inventory_manifest: /shared/project/scratch/gpn-star-scores/inventory/release/manifest.json
+  parquet_selection: /shared/project/scratch/gpn-star-scores/parquet-benchmark/selection.json
+  track_selection: /shared/project/scratch/gpn-star-scores/bigwig-benchmark/selection.json
+  # Keep the post-v1 output separate from the existing issue #7 directory.
+  output_root: /shared/project/scratch/gpn-star-scores/raw-llr
+  batch_size: 262144
+  sample_count: 1024
+  value_decimals: 3
+  expected_base_revision: null
+  publication_approval: null
+  # publication_approval:
+  #   approved: true
+  #   evidence_url: https://github.com/gonzalobenegas/gpn-star-scores/issues/15
+  #   approved_by: gonzalobenegas
+  #   approved_at: "YYYY-MM-DD"
+  #   expected_base_revision: 40_CHARACTER_CURRENT_PUBLIC_REVISION
+  #   operation: publish_raw_llr
+  #   incremental_bytes: EXACT_VALUE_FROM_VALIDATION_JSON
+  #   candidate_sha256: 64_CHARACTER_CANDIDATE_DIGEST
+  #   storage_policy_url: https://huggingface.co/docs/hub/storage-limits
+
+  # Retained after the issue #15 pilot and quota-safe production recovery.
+  # Audit memory is based on the 11.3 GiB production peak, not the earlier
+  # policy-minimum request.
+  resources:
+    build_chromosome:
+      mem_mb: 16384
+      runtime: 60
+      disk_mb: 16384
+    concatenate:
+      mem_mb: 49152
+      runtime: 120
+      disk_mb: 24576
+    audit:
+      mem_mb: 16384
+      runtime: 30
+      disk_mb: 1024
+    aggregate:
+      mem_mb: 4096
+      runtime: 30
+      disk_mb: 1024
+    # Publication runs locally and never through the SCF profile.
+    publish: {mem_mb: 1024, runtime: 120, disk_mb: 1024}

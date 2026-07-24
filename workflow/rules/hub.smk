@@ -8,6 +8,10 @@ from gpn_star_scores.hub import build_track_hub
 
 HUB_CONFIG = config.get("hub", {})
 HUB_ENABLED = bool(HUB_CONFIG.get("enabled", False))
+HUB_METADATA_ONLY_UPDATE = HUB_CONFIG.get("metadata_only_update", False)
+if not isinstance(HUB_METADATA_ONLY_UPDATE, bool):
+    raise WorkflowError("hub.metadata_only_update must be a boolean")
+HUB_METADATA_ONLY_FLAG = "--metadata-only" if HUB_METADATA_ONLY_UPDATE else ""
 HUB_OUTPUT_ROOT = Path(HUB_CONFIG.get("output_root", "results/hub"))
 HUB_METADATA_ROOT = HUB_OUTPUT_ROOT / "metadata"
 HUB_VALIDATION_JSON = HUB_OUTPUT_ROOT / "validation.json"
@@ -76,6 +80,19 @@ if HUB_ENABLED:
             )
     HUB_RELEASE_MANIFEST = Path(HUB_CONFIG["release_manifest"])
     HUB_ARTIFACT_REVISION = str(HUB_CONFIG["artifact_revision"])
+    HUB_RAW_LLR_VALIDATION = HUB_CONFIG.get("raw_llr_validation")
+    HUB_RAW_LLR_ARTIFACT_REVISION = HUB_CONFIG.get("raw_llr_artifact_revision")
+    if bool(HUB_RAW_LLR_VALIDATION) != bool(HUB_RAW_LLR_ARTIFACT_REVISION):
+        raise WorkflowError(
+            "hub.raw_llr_validation and hub.raw_llr_artifact_revision "
+            "must be configured together"
+        )
+    HUB_RAW_LLR_VALIDATION = (
+        Path(HUB_RAW_LLR_VALIDATION) if HUB_RAW_LLR_VALIDATION else None
+    )
+    HUB_RAW_LLR_ARTIFACT_REVISION = (
+        str(HUB_RAW_LLR_ARTIFACT_REVISION) if HUB_RAW_LLR_ARTIFACT_REVISION else None
+    )
     HUB_EXPECTED_BASE_REVISION = str(HUB_CONFIG["expected_base_revision"])
     HUB_CONTACT_EMAIL = str(HUB_CONFIG["contact_email"])
     HUB_UDC_CACHE_ROOT = Path(HUB_CONFIG["udc_cache_root"])
@@ -93,6 +110,11 @@ if HUB_ENABLED:
         """Render the hub, descriptions, manifest, and linked dataset card."""
         input:
             manifest=str(HUB_RELEASE_MANIFEST),
+            raw_llr_validation=(
+                str(HUB_RAW_LLR_VALIDATION)
+                if HUB_RAW_LLR_VALIDATION is not None
+                else []
+            ),
         output:
             directory(str(HUB_METADATA_ROOT)),
         log:
@@ -109,6 +131,8 @@ if HUB_ENABLED:
                     output[0],
                     artifact_revision=HUB_ARTIFACT_REVISION,
                     contact_email=HUB_CONTACT_EMAIL,
+                    raw_llr_validation_path=HUB_RAW_LLR_VALIDATION,
+                    raw_llr_artifact_revision=HUB_RAW_LLR_ARTIFACT_REVISION,
                 )
                 Path(log[0]).parent.mkdir(parents=True, exist_ok=True)
                 Path(log[0]).write_text("built UCSC track hub\n")
@@ -118,7 +142,7 @@ if HUB_ENABLED:
                 raise
 
     rule validate_track_hub:
-        """Validate local hub controls and all pinned public BigWigs."""
+        """Validate hub controls and the configured artifact scope."""
         input:
             metadata=directory(str(HUB_METADATA_ROOT)),
         output:
@@ -140,5 +164,6 @@ if HUB_ENABLED:
                 --report {output.json:q} \
                 --markdown {output.markdown:q} \
                 --udc-dir {HUB_UDC_CACHE_ROOT:q} \
+                {HUB_METADATA_ONLY_FLAG} \
                 >{log:q} 2>&1
             """
