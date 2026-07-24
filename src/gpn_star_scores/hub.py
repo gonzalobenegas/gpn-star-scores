@@ -91,12 +91,8 @@ def _track_symbol(score_set: str, suffix: str = "") -> str:
 def _score_set_label(score_set: ScoreSetSpec) -> str:
     if score_set.assembly == "hg38":
         model = score_set.name.removeprefix("gpn-star-hg38-").removesuffix("-200m")
-        return f"GPN-Star {model}"
-    assembly = {
-        "gg6": "galGal6",
-        "tair10": "TAIR10",
-    }.get(score_set.assembly, score_set.assembly)
-    return f"GPN-Star {assembly}"
+        return f"GPN-Star ({model[0].upper()})"
+    return "GPN-Star"
 
 
 def _artifact_url(path: str, revision: str) -> str:
@@ -128,7 +124,7 @@ def browser_launch_links(*, include_raw_llr: bool = False) -> list[dict[str, str
             f"{group}Logo": "full",
         }
         if include_raw_llr:
-            settings[f"{group}RawLlr"] = "dense"
+            settings[f"{group}RawLlr"] = "full"
         query = urlencode(settings)
         links.append(
             {
@@ -154,7 +150,7 @@ def raw_llr_validation_links() -> list[dict[str, str]]:
             group: "show",
             f"{group}Entropy": "hide",
             f"{group}Logo": "hide",
-            f"{group}RawLlr": "dense",
+            f"{group}RawLlr": "full",
         }
         links.append(
             {
@@ -440,7 +436,7 @@ def _render_track_db(
                 f"parent {group}",
                 "type bigWig",
                 "shortLabel Entropy",
-                f"longLabel {label} calibrated entropy score",
+                f"longLabel {label} entropy",
                 "visibility dense",
                 "autoScale on",
                 "graphTypeDefault bar",
@@ -454,7 +450,7 @@ def _render_track_db(
                 "container multiWig",
                 "type bigWig 0 2",
                 "shortLabel Sequence logo",
-                f"longLabel {label} calibrated-LLR-derived sequence logo",
+                f"longLabel {label} LLR-derived sequence logo",
                 "aggregate stacked",
                 "showSubtrackColorOnUi on",
                 "autoScale off",
@@ -488,9 +484,9 @@ def _render_track_db(
                     f"parent {group}",
                     "compositeTrack on",
                     "type bigWig",
-                    "shortLabel Raw LLR",
-                    f"longLabel {label} raw calibrated LLR by allele",
-                    "visibility dense",
+                    "shortLabel LLR",
+                    f"longLabel {label} LLR by allele",
+                    "visibility full",
                     "autoScale group",
                     "alwaysZero on",
                     "yLineOnOff on",
@@ -510,9 +506,9 @@ def _render_track_db(
                         f"    parent {raw_llr} on",
                         "    type bigWig",
                         f"    shortLabel LLR {base}",
-                        f"    longLabel {label} {base} raw calibrated LLR",
+                        f"    longLabel {label} {base} LLR",
                         f"    priority {base_priority}",
-                        "    visibility dense",
+                        "    visibility full",
                         f"    color {RAW_LLR_POSITIVE_COLOR}",
                         f"    altColor {RAW_LLR_NEGATIVE_COLOR}",
                         (
@@ -533,7 +529,7 @@ def _render_hub_description(
     raw_llr_text = ""
     if raw_llr_artifact_revision is not None:
         raw_llr_text = f"""
-<p>Each model group also includes a dense raw calibrated-LLR composite with
+<p>Each model group also includes a full LLR composite with
 separate A/C/G/T rows. Positive values are blue, negative values are red, and
 the zero baseline is always visible. These additive tracks are pinned to
 artifact revision <code>{raw_llr_artifact_revision}</code>.</p>"""
@@ -542,7 +538,7 @@ artifact revision <code>{raw_llr_artifact_revision}</code>.</p>"""
 <head><meta charset="utf-8"><title>GPN-Star genome-wide scores</title></head>
 <body>
 <h1>GPN-Star genome-wide scores</h1>
-<p>This hub exposes calibrated entropy and calibrated-LLR-derived sequence-logo
+<p>This hub exposes entropy and LLR-derived sequence-logo
 tracks for eight GPN-Star score sets across six UCSC assemblies.</p>
 <p>The original entropy and sequence-logo data are pinned to Hugging Face
 artifact revision
@@ -566,7 +562,7 @@ def _render_group_description(
     model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
     revision_text = (
         "The entropy and sequence-logo browser tracks are pinned to artifact "
-        f"revision <code>{artifact_revision}</code>. The raw calibrated-LLR "
+        f"revision <code>{artifact_revision}</code>. The LLR "
         "tracks are pinned to artifact revision "
         f"<code>{raw_llr_artifact_revision}</code>."
         if raw_llr_artifact_revision is not None
@@ -597,14 +593,13 @@ def _render_entropy_description(score_set: ScoreSetSpec, artifact_revision: str)
 <html lang="en">
 <head><meta charset="utf-8"><title>{html.escape(label)} entropy</title></head>
 <body>
-<h1>{html.escape(label)} calibrated entropy</h1>
+<h1>{html.escape(label)} entropy</h1>
 <p>Model: <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>
 ({html.escape(score_set.model_description)}).</p>
-<p>This quantitative track contains the independently supplied
-<code>entropy_calibrated</code> value. It is a Float32 browser view rounded to
-three decimals; Parquet is the canonical full-precision score product.</p>
-<p>Calibration is represented exactly as supplied by the release. This track
-does not add an unreviewed biological directionality for high or low values.</p>
+<p>This quantitative track contains GPN-Star entropy values. It is a Float32
+browser view rounded to three decimals; Parquet is the canonical full-precision
+score product. The track does not add an unreviewed biological directionality
+for high or low values.</p>
 <p>One-based Parquet positions were converted explicitly to zero-based,
 half-open one-base BigWig intervals with UCSC chromosome names. Artifact
 revision: <code>{artifact_revision}</code>.</p>
@@ -620,16 +615,15 @@ def _render_logo_description(score_set: ScoreSetSpec, artifact_revision: str) ->
 <html lang="en">
 <head><meta charset="utf-8"><title>{html.escape(label)} sequence logo</title></head>
 <body>
-<h1>{html.escape(label)} calibrated-LLR-derived sequence logo</h1>
+<h1>{html.escape(label)} LLR-derived sequence logo</h1>
 <p>Model: <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>
 ({html.escape(score_set.model_description)}).</p>
-<p>This stacked A/C/G/T view is a visualization transform, not a raw model
+<p>This stacked A/C/G/T view is a visualization transform, not a model
 probability. At each position the reference nucleotide receives logit zero and
 the three alternate nucleotides receive their independently supplied
-<code>llr_calibrated</code> values. A stable Float64 softmax gives
-<code>p(base)</code>; with base-2 entropy <code>H</code>, each displayed height is
-<code>p(base) * (2 - H)</code>. Final BigWig values are Float32 rounded to three
-decimals. <code>abs_llr_calibrated</code> is not used or derived.</p>
+LLR values. A stable Float64 softmax gives <code>p(base)</code>; with base-2
+entropy <code>H</code>, each displayed height is <code>p(base) * (2 - H)</code>.
+Final BigWig values are Float32 rounded to three decimals.</p>
 <p>A is green, C blue, G orange, and T red. The height is only the stated
 derived visualization value; use the canonical Parquet files for supplied
 scores and their full precision.</p>
@@ -646,19 +640,18 @@ def _render_raw_llr_description(score_set: ScoreSetSpec, artifact_revision: str)
     model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
     return f"""<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>{html.escape(label)} raw LLR</title></head>
+<head><meta charset="utf-8"><title>{html.escape(label)} LLR</title></head>
 <body>
-<h1>{html.escape(label)} raw calibrated LLR</h1>
+<h1>{html.escape(label)} LLR</h1>
 <p>Model: <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>
 ({html.escape(score_set.model_description)}).</p>
 <p>This CADD-inspired composite presents one A, C, G, and T BigWig row. At
 each covered position the reference allele is assigned the explicit zero
 baseline and each alternate allele retains its independently supplied
-<code>llr_calibrated</code> value. Positive LLR is blue and negative LLR is
-red. The four rows share automatic scaling and display the zero line.</p>
-<p>Values are Float32 rounded to three decimals for browser visualization.
-<code>abs_llr_calibrated</code> is neither used nor derived; Parquet remains
-the canonical full-precision score product.</p>
+LLR value. Positive LLR is blue and negative LLR is red. The four rows share
+automatic scaling and display the zero line.</p>
+<p>Values are Float32 rounded to three decimals for browser visualization;
+Parquet remains the canonical full-precision score product.</p>
 <p>One-based Parquet positions were converted explicitly to zero-based,
 half-open one-base BigWig intervals with UCSC chromosome names. Artifact
 revision: <code>{artifact_revision}</code>.</p>
@@ -1186,13 +1179,13 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         raise ValueError("each score set must define one multiWig")
     if track_db_text.count("logo on") != len(SCORE_SETS):
         raise ValueError("each score set must enable sequence-logo rendering")
-    expected_dense_count = (
-        len(SCORE_SETS) * (1 + 1 + len(RAW_LLR_TRACKS))
-        if raw_llr_enabled
-        else len(SCORE_SETS)
-    )
-    if track_db_text.count("visibility dense") != expected_dense_count:
+    if track_db_text.count("visibility dense") != len(SCORE_SETS):
         raise ValueError("each entropy track must default to dense")
+    expected_full_count = len(SCORE_SETS) * (
+        1 + (1 + len(RAW_LLR_TRACKS) if raw_llr_enabled else 0)
+    )
+    if track_db_text.count("visibility full") != expected_full_count:
+        raise ValueError("logo and LLR tracks must default to full")
     if raw_llr_enabled:
         if track_db_text.count("compositeTrack on") != len(SCORE_SETS):
             raise ValueError("each score set must define one raw-LLR composite")
@@ -1351,6 +1344,7 @@ def _validate_track_hub(
     metadata_root: Path,
     *,
     hub_target: str,
+    metadata_only: bool,
     hub_check: str,
     bigwig_info: str,
     bigwig_summary: str,
@@ -1371,6 +1365,40 @@ def _validate_track_hub(
         ],
         runner=runner,
     )
+    common_report = {
+        "report_version": 1,
+        "valid": True,
+        "repository": REPOSITORY_ID,
+        "artifact_revision": manifest["artifact_revision"],
+        "raw_llr_artifact_revision": manifest.get("raw_llr_artifact_revision"),
+        "hub_manifest_sha256": sha256_file(
+            metadata_root / "manifest" / "ucsc-hub.json"
+        ),
+        "hub_target": hub_target,
+        "hub_check": {
+            "passed": True,
+            "remote_tracks_checked": False,
+            "check_settings": True,
+            "settings_spec": HUB_SETTINGS_SPEC,
+            "stdout": hub_check_result.stdout,
+            "stderr": hub_check_result.stderr,
+        },
+        "assembly_count": len(HUB_ASSEMBLY_ORDER),
+        "score_set_count": len(SCORE_SETS),
+    }
+    if metadata_only:
+        return {
+            **common_report,
+            "track_count": 0,
+            "validation_scope": "hub_metadata_only",
+            "existing_v1_bigwigs_revalidated": False,
+            "existing_raw_llr_bigwigs_revalidated": False,
+            "prior_artifact_validation_reused": True,
+            "http_range_count": 0,
+            "http_range_checks": [],
+            "chromosome_checks": [],
+            "representative_checks": [],
+        }
 
     validation_scope = manifest.get("validation_scope_tracks")
     if not isinstance(validation_scope, list) or not all(
@@ -1507,30 +1535,14 @@ def _validate_track_hub(
         )
 
     return {
-        "report_version": 1,
-        "valid": True,
-        "repository": REPOSITORY_ID,
-        "artifact_revision": manifest["artifact_revision"],
-        "raw_llr_artifact_revision": manifest.get("raw_llr_artifact_revision"),
-        "hub_manifest_sha256": sha256_file(
-            metadata_root / "manifest" / "ucsc-hub.json"
-        ),
-        "hub_target": hub_target,
-        "hub_check": {
-            "passed": True,
-            "remote_tracks_checked": False,
-            "check_settings": True,
-            "settings_spec": HUB_SETTINGS_SPEC,
-            "stdout": hub_check_result.stdout,
-            "stderr": hub_check_result.stderr,
-        },
-        "assembly_count": len(HUB_ASSEMBLY_ORDER),
-        "score_set_count": len(SCORE_SETS),
+        **common_report,
         "track_count": len(tracks),
         "validation_scope": (
             "new_raw_llr_tracks_only" if raw_llr_scope else "legacy_v1_tracks"
         ),
         "existing_v1_bigwigs_revalidated": False if raw_llr_scope else True,
+        "existing_raw_llr_bigwigs_revalidated": raw_llr_scope,
+        "prior_artifact_validation_reused": raw_llr_scope,
         "http_range_count": len(range_checks),
         "http_range_checks": range_checks,
         "chromosome_checks": chromosome_checks,
@@ -1549,9 +1561,23 @@ def _render_validation_markdown(report: Mapping[str, Any]) -> str:
         "`hubCheck -noTracks -checkSettings`: "
         f"{'passed' if report['hub_check']['passed'] else 'failed'}",
         "",
-        "| Score set | UCSC assembly | Representative locus | Tracks queried |",
-        "| --- | --- | --- | ---: |",
     ]
+    if report.get("validation_scope") == "hub_metadata_only":
+        lines.extend(
+            [
+                "Validation was intentionally limited to hub metadata. No BigWig "
+                "ranges, headers, bases, or zoom summaries were requested; completed "
+                "artifact evidence was reused.",
+                "",
+            ]
+        )
+        return "\n".join(lines)
+    lines.extend(
+        [
+            "| Score set | UCSC assembly | Representative locus | Tracks queried |",
+            "| --- | --- | --- | ---: |",
+        ]
+    )
     for check in report["representative_checks"]:
         lines.append(
             f"| `{check['score_set']}` | `{check['ucsc_assembly']}` | "
@@ -1586,6 +1612,7 @@ def validate_track_hub(
     markdown_path: str | Path,
     *,
     udc_dir: str | Path,
+    metadata_only: bool = False,
     hub_target: str | None = None,
     hub_check: str = "hubCheck",
     bigwig_info: str = "bigWigInfo",
@@ -1593,13 +1620,14 @@ def validate_track_hub(
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     opener: Callable[..., Any] = urlopen,
 ) -> None:
-    """Run hubCheck, range, chromosome, base, and zoom validation."""
+    """Validate hub metadata and, unless disabled, its configured BigWig scope."""
 
     metadata = Path(metadata_root)
     target = hub_target or str((metadata / "ucsc" / "hub.txt").resolve())
     report = _validate_track_hub(
         metadata,
         hub_target=target,
+        metadata_only=metadata_only,
         hub_check=hub_check,
         bigwig_info=bigwig_info,
         bigwig_summary=bigwig_summary,
@@ -1680,6 +1708,7 @@ def _validated_recovery_publication(
     final_revision: str,
     publication_approval: Mapping[str, Any],
     repository_id: str,
+    metadata_only: bool,
 ) -> dict[str, Any]:
     pending = _read_json(report_path)
     expected_files = [
@@ -1695,6 +1724,7 @@ def _validated_recovery_publication(
         "single_commit": True,
         "single_process": True,
         "slurm_job_id": None,
+        "metadata_only": metadata_only,
         "publication_approval": dict(publication_approval),
         "published_files": expected_files,
     }
@@ -1732,6 +1762,7 @@ def validate_public_track_hub(
     *,
     revision: str,
     udc_dir: str | Path,
+    metadata_only: bool = False,
     repository_id: str = REPOSITORY_ID,
     api: Any | None = None,
     opener: Callable[..., Any] = urlopen,
@@ -1775,6 +1806,7 @@ def validate_public_track_hub(
     validation = _validate_track_hub(
         metadata,
         hub_target=remote_hub_url,
+        metadata_only=metadata_only,
         hub_check="hubCheck",
         bigwig_info="bigWigInfo",
         bigwig_summary="bigWigSummary",
@@ -1894,6 +1926,7 @@ def validate_existing_track_hub_publication(
     publication_approval: Mapping[str, Any] | None,
     udc_dir: str | Path,
     success_marker_path: str | Path,
+    metadata_only: bool = False,
     repository_id: str = REPOSITORY_ID,
     validator: Callable[..., dict[str, Any]] = validate_public_track_hub,
 ) -> None:
@@ -1922,6 +1955,7 @@ def validate_existing_track_hub_publication(
         final_revision=final_revision,
         publication_approval=approval,
         repository_id=repository_id,
+        metadata_only=metadata_only,
     )
     success_marker = Path(success_marker_path)
     if success_marker.resolve() == Path(report_path).resolve():
@@ -1933,6 +1967,7 @@ def validate_existing_track_hub_publication(
         revision=final_revision,
         udc_dir=udc_dir,
         repository_id=repository_id,
+        metadata_only=metadata_only,
     )
     if public_validation.get("valid") is not True:
         raise RuntimeError("existing public hub validation returned an invalid result")
@@ -2039,6 +2074,7 @@ def publish_track_hub(
     expected_base_revision: str,
     publication_approval: Mapping[str, Any] | None,
     udc_dir: str | Path,
+    metadata_only: bool = False,
     success_marker_path: str | Path | None = None,
     repository_id: str = REPOSITORY_ID,
     api: Any | None = None,
@@ -2074,6 +2110,7 @@ def publish_track_hub(
         != manifest.get("raw_llr_artifact_revision")
         or validation.get("hub_manifest_sha256")
         != sha256_file(metadata / "manifest" / "ucsc-hub.json")
+        or (metadata_only and validation.get("validation_scope") != "hub_metadata_only")
     ):
         raise ValueError("local hub validation does not match the rendered hub")
 
@@ -2113,6 +2150,7 @@ def publish_track_hub(
         "single_commit": True,
         "single_process": True,
         "slurm_job_id": None,
+        "metadata_only": metadata_only,
         "publication_approval": approval,
         "published_files": published_files,
     }
@@ -2123,6 +2161,7 @@ def publish_track_hub(
             revision=final_revision,
             udc_dir=udc_dir,
             repository_id=repository_id,
+            metadata_only=metadata_only,
         )
         if public_validation.get("valid") is not True:
             raise RuntimeError("public hub validation returned an invalid result")
@@ -2282,6 +2321,7 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--report", type=Path, required=True)
     validate.add_argument("--markdown", type=Path, required=True)
     validate.add_argument("--udc-dir", type=Path, required=True)
+    validate.add_argument("--metadata-only", action="store_true")
 
     publish = commands.add_parser("publish")
     publish.add_argument("--metadata-root", type=Path, required=True)
@@ -2297,6 +2337,7 @@ def _parser() -> argparse.ArgumentParser:
     publish.add_argument("--approval-operation", required=True)
     publish.add_argument("--approval-candidate-sha256", required=True)
     publish.add_argument("--udc-dir", type=Path, required=True)
+    publish.add_argument("--metadata-only", action="store_true")
 
     card = commands.add_parser("publish-card")
     card.add_argument("--metadata-root", type=Path, required=True)
@@ -2325,6 +2366,7 @@ def _parser() -> argparse.ArgumentParser:
     existing.add_argument("--approval-operation", required=True)
     existing.add_argument("--approval-candidate-sha256", required=True)
     existing.add_argument("--udc-dir", type=Path, required=True)
+    existing.add_argument("--metadata-only", action="store_true")
 
     existing_card = commands.add_parser("validate-existing-card")
     existing_card.add_argument("--metadata-root", type=Path, required=True)
@@ -2372,6 +2414,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.report,
             args.markdown,
             udc_dir=args.udc_dir,
+            metadata_only=args.metadata_only,
         )
         return
     if args.command == "publish":
@@ -2382,6 +2425,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             expected_base_revision=args.expected_base_revision,
             publication_approval=_approval_from_args(args),
             udc_dir=args.udc_dir,
+            metadata_only=args.metadata_only,
             success_marker_path=args.success_marker,
         )
         return
@@ -2402,6 +2446,7 @@ def main(argv: Sequence[str] | None = None) -> None:
             final_revision=args.final_revision,
             publication_approval=_approval_from_args(args),
             udc_dir=args.udc_dir,
+            metadata_only=args.metadata_only,
             success_marker_path=args.success_marker,
         )
         return

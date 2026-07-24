@@ -429,16 +429,17 @@ for the reference allele. They do not use or derive `abs_llr_calibrated`.
 These are three-decimal Float32 browser views; Parquet remains canonical.
 """
         raw_llr_browser = """
-The raw calibrated-LLR composite follows the CADD organization of separate
-allele rows, adapted for signed scores: positive values are blue, negative
-values are red, all four rows share their scale, and the zero line remains
-visible. Entropy and raw LLR default to the compact `dense` view.
+The LLR composite follows the CADD organization of separate allele rows,
+adapted for signed scores: positive values are blue, negative values are red,
+all four rows share their scale, and the zero line remains visible. Entropy
+defaults to the compact `dense` view; LLR defaults to `full` so its signed
+colors are visible.
 """
         raw_llr_catalog = f"""
 The expanded public catalog contains **72 BigWigs**: the 40 immutable v1
 entropy/logo artifacts remain pinned to
-`{v1_provenance["revision"]}`, while the 32 raw calibrated-LLR artifacts are
-pinned to `{raw_llr_provenance["revision"]}`.
+`{v1_provenance["revision"]}`, while the 32 LLR artifacts are pinned to
+`{raw_llr_provenance["revision"]}`.
 """
         raw_llr_layout = ",llr_A,llr_C,llr_G,llr_T"
         raw_llr_manifest = (

@@ -143,10 +143,8 @@ Issue #6's opt-in workflow is documented in
 multi-assembly hub with eight model groups. Each group contains a conventional
 one-dimensional entropy signal, one stacked A/C/G/T sequence-logo view, and
 the issue #15 raw signed-LLR composite after that extension is enabled.
-Entropy and raw LLR default to `dense`. Raw positive values are blue and raw
-negative values red when the quantitative rows are expanded; UCSC's compact
-`dense` rendering is grayscale. The derived sequence logo retains nucleotide
-colors.
+Entropy defaults to `dense`. LLR defaults to `full`, with positive values blue
+and negative values red. The derived sequence logo retains nucleotide colors.
 Existing v1 URLs stay pinned to their immutable issue #4 revision, while the
 32 additive URLs pin their own artifact revision. Extension validation checks
 only the new BigWigs; `hubCheck` still validates the complete hub structure.

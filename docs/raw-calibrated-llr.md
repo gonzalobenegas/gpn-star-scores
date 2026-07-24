@@ -117,21 +117,20 @@ The browser presentation adapts the
 organization:
 
 - one `compositeTrack` per model with separate A, C, G, and T child rows;
-- `dense` on the composite and every child;
+- `full` on the composite and every child so signed colors are visible;
 - shared group auto-scaling;
 - an always-visible zero baseline;
 - `mean+whiskers` windowing; and
 - blue (`0,0,255`) for positive LLR and red (`255,0,0`) for negative LLR.
 
-Entropy also defaults to `dense`. The existing derived sequence logo remains
-unchanged and continues using nucleotide colors. Hub validation runs
-`hubCheck -noTracks -checkSettings` for the complete metadata structure, then
-scopes BigWig range, header, base, and zoom checks to the 32 new tracks. The
-public hub update then uses the existing optimistic, approval-gated
+Entropy defaults to `dense`. The existing derived sequence logo remains
+unchanged and continues using nucleotide colors. Initial artifact validation
+ran `hubCheck -noTracks -checkSettings` for the complete metadata structure and
+scoped BigWig range, header, base, and zoom checks to the 32 new tracks.
+Presentation-only follow-ups use metadata-only validation and do not request
+any BigWig. Public hub updates use the existing optimistic, approval-gated
 `publish_hub` target.
 
 CADD's native trackDb uses `mouseOverFunction noAverage`, but UCSC's public
 hub settings validator rejects that native-only setting. The hub therefore
-uses the supported default mouse-over behavior. UCSC also renders quantitative
-tracks in grayscale in compact `dense` mode; the signed `color`/`altColor`
-bars appear when the four rows are expanded to `full`.
+uses the supported default mouse-over behavior.

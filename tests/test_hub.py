@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
@@ -199,6 +200,7 @@ def _write_pending_publication_report(metadata: Path, path: Path) -> None:
                 "single_commit": True,
                 "single_process": True,
                 "slurm_job_id": None,
+                "metadata_only": False,
                 "publication_approval": _publication_approval(metadata),
                 "published_files": [
                     item.relative_to(metadata).as_posix() for item in publication_files
@@ -231,7 +233,11 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
     assert hg38.count("graphTypeDefault bar") == 3
     assert hg38.count("logo on") == 3
     assert hg38.count("visibility dense") == 3
+    assert hg38.count("visibility full") == 3
     assert hg38.count("bigDataUrl ") == 15
+    assert "shortLabel GPN-Star (V)" in hg38
+    assert "shortLabel GPN-Star (M)" in hg38
+    assert "shortLabel GPN-Star (P)" in hg38
     assert "noInherit" not in hg38
     for color in NUCLEOTIDE_COLORS.values():
         assert hg38.count(f"color {color}") == 3
@@ -243,6 +249,7 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         assert track_db.count("graphTypeDefault bar") == 1
         assert track_db.count("logo on") == 1
         assert track_db.count("bigDataUrl ") == 5
+        assert "shortLabel GPN-Star\n" in track_db
 
     assert f"/resolve/{ARTIFACT_REVISION}/bigwig/" in hg38
     assert "llr_A" not in hg38
@@ -291,7 +298,8 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
 
     hg38 = (metadata / "ucsc" / "hg38" / "trackDb.txt").read_text()
     assert hg38.count("compositeTrack on") == 3
-    assert hg38.count("visibility dense") == 18
+    assert hg38.count("visibility dense") == 3
+    assert hg38.count("visibility full") == 18
     assert hg38.count("autoScale group") == 3
     assert hg38.count("alwaysZero on") == 3
     assert hg38.count("yLineMark 0") == 3
@@ -315,7 +323,7 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
         group = next(key for key, value in query.items() if value == ["show"])
         assert query[f"{group}Entropy"] == ["hide"]
         assert query[f"{group}Logo"] == ["hide"]
-        assert query[f"{group}RawLlr"] == ["dense"]
+        assert query[f"{group}RawLlr"] == ["full"]
     assert len(hub_manifest["validation_scope_tracks"]) == 32
     assert all(
         any(track in item for track in RAW_LLR_TRACKS)
@@ -365,11 +373,13 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     tair10 = metadata / "ucsc" / "araTha1"
     raw_description = next(tair10.glob("*RawLlr.html")).read_text()
     assert "reference allele is assigned the explicit zero" in raw_description
-    assert "Positive LLR is blue and negative LLR is\nred" in raw_description
-    assert "abs_llr_calibrated" in raw_description
+    assert "Positive LLR is blue and negative LLR is red" in raw_description
     readme = (metadata / "README.md").read_text()
     assert "`llr_A`, `llr_C`, `llr_G`, and `llr_T`" in readme
-    assert "Entropy and raw LLR default to the compact `dense` view" in readme
+    assert (
+        "Entropy\ndefaults to the compact `dense` view; LLR defaults to `full`"
+        in readme
+    )
     assert "does not repeat validation of the 40 immutable v1 BigWigs" in readme
     assert "72 BigWigs" in readme
     assert ARTIFACT_REVISION in readme
@@ -382,6 +392,19 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     assert "entropy and sequence-logo browser tracks" in group_description
     assert ARTIFACT_REVISION in group_description
     assert RAW_LLR_ARTIFACT_REVISION in group_description
+    description_files = [
+        metadata / "ucsc" / "description.html",
+        *sorted((metadata / "ucsc").glob("*/*.html")),
+    ]
+    user_facing_metadata = [
+        *(description_file.read_text() for description_file in description_files),
+        *(
+            track_db.read_text()
+            for track_db in sorted((metadata / "ucsc").glob("*/trackDb.txt"))
+        ),
+    ]
+    for text in user_facing_metadata:
+        assert re.search(r"\b(?:raw|calibrated)\b", text, re.IGNORECASE) is None
 
 
 def test_build_rejects_output_that_contains_source_release_manifest(
@@ -416,16 +439,15 @@ def test_track_descriptions_preserve_score_and_coordinate_semantics(
 
     assert "genome GCF_000001735.4" in (metadata / "ucsc" / "genomes.txt").read_text()
     assert hub_database_name("tair10") == "GCF_000001735.4"
-    assert "GPN-Star TAIR10" in track_db
+    assert "shortLabel GPN-Star\n" in track_db
     assert len(html_files) == 3
     entropy = next(value for name, value in html_files.items() if "Entropy" in name)
     logo = next(value for name, value in html_files.items() if "Logo" in name)
-    assert "entropy_calibrated" in entropy
+    assert "GPN-Star entropy values" in entropy
     assert "does not add an unreviewed biological directionality" in entropy
     assert "zero-based,\nhalf-open one-base BigWig intervals" in entropy
     assert "p(base) * (2 - H)" in logo
-    assert "abs_llr_calibrated" in logo
-    assert "not a raw model\nprobability" in logo
+    assert "not a model\nprobability" in logo
 
 
 class _FakeResponse:
@@ -564,6 +586,47 @@ def test_extended_hub_validation_does_not_repeat_v1_bigwig_checks(
     assert "40 immutable v1 BigWigs were not revalidated" in markdown
 
 
+def test_metadata_only_validation_skips_every_bigwig_request(tmp_path: Path) -> None:
+    metadata = _build_metadata(tmp_path, include_raw_llr=True)
+
+    def opener(*args: object, **kwargs: object) -> _FakeResponse:
+        raise AssertionError("metadata-only validation must not request a BigWig")
+
+    def runner(
+        command: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        assert Path(command[0]).name == "hubCheck"
+        assert "-noTracks" in command
+        return subprocess.CompletedProcess(command, 0, "hub is valid\n", "")
+
+    report_path = tmp_path / "validation.json"
+    markdown_path = tmp_path / "validation.md"
+    validate_track_hub(
+        metadata,
+        report_path,
+        markdown_path,
+        udc_dir=tmp_path / "udc",
+        metadata_only=True,
+        runner=runner,
+        opener=opener,
+    )
+
+    report = json.loads(report_path.read_text())
+    assert report["valid"] is True
+    assert report["validation_scope"] == "hub_metadata_only"
+    assert report["track_count"] == 0
+    assert report["http_range_count"] == 0
+    assert report["chromosome_checks"] == []
+    assert report["representative_checks"] == []
+    assert report["existing_v1_bigwigs_revalidated"] is False
+    assert report["existing_raw_llr_bigwigs_revalidated"] is False
+    assert report["prior_artifact_validation_reused"] is True
+    markdown = markdown_path.read_text()
+    assert (
+        "No BigWig ranges, headers, bases, or zoom summaries were requested" in markdown
+    )
+
+
 def test_validation_rejects_cross_track_chromosome_length_mismatch(
     tmp_path: Path,
 ) -> None:
@@ -643,6 +706,40 @@ def test_public_validation_checks_published_files_and_remote_hub(
     assert report["revision"] == ARTIFACT_REVISION
     assert report["file_count"] == 35
     assert report["hub_validation"]["hub_target"].endswith("/ucsc/hub.txt")
+
+
+def test_public_metadata_only_validation_never_requests_a_bigwig(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path, include_raw_llr=True)
+
+    def opener(target: object, **kwargs: object) -> _FakeResponse:
+        assert isinstance(target, str), "BigWig requests use Request objects"
+        marker = f"/resolve/{ARTIFACT_REVISION}/"
+        relative_path = target.split(marker, maxsplit=1)[1]
+        return _FakeResponse((metadata / relative_path).read_bytes())
+
+    def runner(
+        command: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        assert Path(command[0]).name == "hubCheck"
+        assert "-noTracks" in command
+        return subprocess.CompletedProcess(command, 0, "hub is valid\n", "")
+
+    report = validate_public_track_hub(
+        metadata,
+        revision=ARTIFACT_REVISION,
+        udc_dir=tmp_path / "udc",
+        metadata_only=True,
+        api=_FakeApi(),
+        opener=opener,
+        runner=runner,
+    )
+
+    assert report["valid"] is True
+    assert report["file_count"] == 45
+    assert report["hub_validation"]["validation_scope"] == "hub_metadata_only"
+    assert report["hub_validation"]["http_range_count"] == 0
 
 
 def test_public_dataset_card_validation_skips_bigwigs(tmp_path: Path) -> None:
@@ -756,6 +853,54 @@ def test_publication_is_one_approval_gated_commit(tmp_path: Path) -> None:
     assert publication["final_revision"] == "b" * 40
     assert publication["single_commit"] is True
     assert success_marker.read_text() == f"{'b' * 40}\n"
+
+
+def test_metadata_only_publication_requires_and_preserves_its_scope(
+    tmp_path: Path,
+) -> None:
+    metadata = _build_metadata(tmp_path, include_raw_llr=True)
+    validation = tmp_path / "validation.json"
+    validation_markdown = tmp_path / "validation.md"
+
+    def runner(
+        command: list[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        assert Path(command[0]).name == "hubCheck"
+        return subprocess.CompletedProcess(command, 0, "hub is valid\n", "")
+
+    validate_track_hub(
+        metadata,
+        validation,
+        validation_markdown,
+        udc_dir=tmp_path / "udc",
+        metadata_only=True,
+        runner=runner,
+        opener=lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("BigWig request")
+        ),
+    )
+    validator_calls: list[dict[str, object]] = []
+
+    def validator(*args: object, **kwargs: object) -> dict[str, object]:
+        validator_calls.append(kwargs)
+        return _successful_public_validation()
+
+    report_path = tmp_path / "publication.json"
+    publish_track_hub(
+        metadata,
+        validation,
+        report_path,
+        expected_base_revision=ARTIFACT_REVISION,
+        publication_approval=_publication_approval(metadata),
+        udc_dir=tmp_path / "udc",
+        metadata_only=True,
+        api=_FakeApi(),
+        validator=validator,
+    )
+
+    assert validator_calls[0]["metadata_only"] is True
+    publication = json.loads(report_path.read_text())
+    assert publication["metadata_only"] is True
 
 
 def test_readme_approval_cannot_publish_the_full_hub(tmp_path: Path) -> None:
@@ -1172,6 +1317,7 @@ def test_enabled_workflow_builds_validates_and_separates_publication(
         f"""\
 hub:
   enabled: true
+  metadata_only_update: true
   release_manifest: {release_manifest}
   artifact_revision: {ARTIFACT_REVISION}
   expected_base_revision: {ARTIFACT_REVISION}
@@ -1200,6 +1346,7 @@ hub:
             "--cores",
             "1",
             "--dry-run",
+            "--printshellcmds",
             target,
         ],
         cwd=REPOSITORY_ROOT,
@@ -1213,6 +1360,7 @@ hub:
     assert "build_track_hub_metadata" in result.stdout
     assert ("\nrule validate_track_hub:" in result.stdout) is (target == "publish_hub")
     assert f"\nrule {target}:" in result.stdout
+    assert ("--metadata-only" in result.stdout) is (target == "publish_hub")
     expected_marker = (
         "publication.complete"
         if target == "publish_hub"

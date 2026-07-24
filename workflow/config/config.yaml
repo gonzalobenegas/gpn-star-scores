@@ -194,6 +194,9 @@ hub:
   # The issue #6 hub is built and validated locally against the immutable
   # public BigWigs. Public publication is a separate approval-gated target.
   enabled: false
+  # Set only for a metadata-only follow-up that must reuse completed BigWig
+  # evidence and skip all BigWig requests during local and public validation.
+  metadata_only_update: false
   release_manifest: null
   # The immutable v1 artifact revision remains the source of entropy and logo
   # tracks. Configure both raw-LLR fields to add the focused post-v1 extension.

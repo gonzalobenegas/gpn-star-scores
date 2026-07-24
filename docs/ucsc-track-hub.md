@@ -29,10 +29,9 @@ Each model group has three user-facing tracks after the issue #15 extension:
   T BigWigs are implementation subtracks rather than four separate top-level
   plots.
 - **Raw calibrated LLR** is a CADD-inspired composite with separate A, C, G,
-  and T rows. It defaults to `dense`, shares group scaling, displays the zero
+  and T rows. It defaults to `full`, shares group scaling, displays the zero
   line, uses `mean+whiskers` windowing, and colors positive values blue and
-  negative values red when expanded. UCSC's compact `dense` rendering is
-  grayscale.
+  negative values red.
 
 The logo follows the established GPN hub colors: A green (`0,128,0`), C blue
 (`0,0,255`), G orange (`255,166,0`), and T red (`255,0,0`). This retains the
@@ -56,6 +55,9 @@ Issue #15 adds those raw calibrated-LLR tracks as 32 explicitly versioned
 artifacts without replacing either v1 view. Their reference allele is an
 explicit zero; alternate alleles retain signed `llr_calibrated`.
 `abs_llr_calibrated` remains unused.
+
+Entropy defaults to `dense`. The LLR composite and its four allele rows default
+to `full` so positive-blue and negative-red values are visible immediately.
 
 ## Generated layout
 

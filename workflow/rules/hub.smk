@@ -8,6 +8,10 @@ from gpn_star_scores.hub import build_track_hub
 
 HUB_CONFIG = config.get("hub", {})
 HUB_ENABLED = bool(HUB_CONFIG.get("enabled", False))
+HUB_METADATA_ONLY_UPDATE = HUB_CONFIG.get("metadata_only_update", False)
+if not isinstance(HUB_METADATA_ONLY_UPDATE, bool):
+    raise WorkflowError("hub.metadata_only_update must be a boolean")
+HUB_METADATA_ONLY_FLAG = "--metadata-only" if HUB_METADATA_ONLY_UPDATE else ""
 HUB_OUTPUT_ROOT = Path(HUB_CONFIG.get("output_root", "results/hub"))
 HUB_METADATA_ROOT = HUB_OUTPUT_ROOT / "metadata"
 HUB_VALIDATION_JSON = HUB_OUTPUT_ROOT / "validation.json"
@@ -138,7 +142,7 @@ if HUB_ENABLED:
                 raise
 
     rule validate_track_hub:
-        """Validate local hub controls and all pinned public BigWigs."""
+        """Validate hub controls and the configured artifact scope."""
         input:
             metadata=directory(str(HUB_METADATA_ROOT)),
         output:
@@ -160,5 +164,6 @@ if HUB_ENABLED:
                 --report {output.json:q} \
                 --markdown {output.markdown:q} \
                 --udc-dir {HUB_UDC_CACHE_ROOT:q} \
+                {HUB_METADATA_ONLY_FLAG} \
                 >{log:q} 2>&1
             """
