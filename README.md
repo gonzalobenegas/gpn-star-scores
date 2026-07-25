@@ -143,8 +143,9 @@ Issue #6's opt-in workflow is documented in
 multi-assembly hub with eight model groups. Each group contains a conventional
 one-dimensional entropy signal, one stacked A/C/G/T sequence-logo view, and
 the issue #15 raw signed-LLR composite after that extension is enabled.
-Entropy defaults to `dense`. LLR defaults to `full`, with positive values blue
-and negative values red. The derived sequence logo retains nucleotide colors.
+Entropy and LLR default to `full`. Positive LLR values use muted blue
+(`60,60,140`) and negative values use muted red (`140,60,60`), matching UCSC's
+hg38 `phyloP100way` track. The derived sequence logo retains nucleotide colors.
 Existing v1 URLs stay pinned to their immutable issue #4 revision, while the
 32 additive URLs pin their own artifact revision. Extension validation checks
 only the new BigWigs; `hubCheck` still validates the complete hub structure.

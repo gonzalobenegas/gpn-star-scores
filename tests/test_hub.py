@@ -266,8 +266,8 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
     assert hg38.count("container multiWig") == 3
     assert hg38.count("graphTypeDefault bar") == 3
     assert hg38.count("logo on") == 3
-    assert hg38.count("visibility dense") == 3
-    assert hg38.count("visibility full") == 3
+    assert "visibility dense" not in hg38
+    assert hg38.count("visibility full") == 6
     assert hg38.count("bigDataUrl ") == 15
     assert "shortLabel GPN-Star (V)" in hg38
     assert "shortLabel GPN-Star (M)" in hg38
@@ -301,7 +301,7 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         assert query["hideTracks"] == ["1"]
         assert query["ignoreCookie"] == ["1"]
         group = next(key for key, value in query.items() if value == ["show"])
-        assert query[f"{group}Entropy"] == ["dense"]
+        assert query[f"{group}Entropy"] == ["full"]
         assert query[f"{group}Logo"] == ["full"]
 
     hub_manifest = json.loads((metadata / "manifest" / "ucsc-hub.json").read_text())
@@ -335,14 +335,16 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
 
     hg38 = (metadata / "ucsc" / "hg38" / "trackDb.txt").read_text()
     assert hg38.count("compositeTrack on") == 3
-    assert hg38.count("visibility dense") == 3
-    assert hg38.count("visibility full") == 18
+    assert "visibility dense" not in hg38
+    assert hg38.count("visibility full") == 21
     assert hg38.count("autoScale group") == 3
     assert hg38.count("alwaysZero on") == 3
     assert hg38.count("yLineMark 0") == 3
     assert hg38.count("windowingFunction mean+whiskers") == 3
     assert "mouseOverFunction" not in hg38
-    assert hg38.count(f"color {RAW_LLR_POSITIVE_COLOR}") == 15
+    assert RAW_LLR_POSITIVE_COLOR == "60,60,140"
+    assert RAW_LLR_NEGATIVE_COLOR == "140,60,60"
+    assert hg38.count(f"color {RAW_LLR_POSITIVE_COLOR}") == 12
     assert hg38.count(f"altColor {RAW_LLR_NEGATIVE_COLOR}") == 12
     assert hg38.count("bigDataUrl ") == 27
     assert f"/resolve/{ARTIFACT_REVISION}/bigwig/" in hg38
@@ -410,7 +412,9 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     tair10 = metadata / "ucsc" / "araTha1"
     raw_description = next(tair10.glob("*RawLlr.html")).read_text()
     assert "reference allele is assigned the explicit zero" in raw_description
-    assert "Positive LLR is blue and negative LLR is red" in raw_description
+    assert "Positive scores use muted blue" in raw_description
+    assert RAW_LLR_POSITIVE_COLOR in raw_description
+    assert RAW_LLR_NEGATIVE_COLOR in raw_description
     readme = (metadata / "README.md").read_text()
     assert "four signed A/C/G/T LLR tracks" in readme
     assert (

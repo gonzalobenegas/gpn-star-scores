@@ -121,10 +121,12 @@ organization:
 - shared group auto-scaling;
 - an always-visible zero baseline;
 - `mean+whiskers` windowing; and
-- blue (`0,0,255`) for positive LLR and red (`255,0,0`) for negative LLR.
+- muted blue (`60,60,140`) for positive LLR and muted red (`140,60,60`) for
+  negative LLR, matching UCSC's hg38 `phyloP100way` track.
 
-Entropy defaults to `dense`. The existing derived sequence logo remains
-unchanged and continues using nucleotide colors. Initial artifact validation
+Entropy defaults to `full`. The existing derived sequence logo remains
+unchanged, defaults to `full`, and continues using nucleotide colors. Initial
+artifact validation
 ran `hubCheck -noTracks -checkSettings` for the complete metadata structure and
 scoped BigWig range, header, base, and zoom checks to the 32 new tracks.
 Presentation-only follow-ups use metadata-only validation and do not request
