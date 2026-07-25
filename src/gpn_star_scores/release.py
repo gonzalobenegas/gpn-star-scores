@@ -585,10 +585,9 @@ These are three-decimal Float32 browser views; Parquet remains canonical.
 """
         raw_llr_browser = """
 The LLR composite follows the CADD organization of separate allele rows,
-adapted for signed scores: positive values are blue, negative values are red,
-all four rows share their scale, and the zero line remains visible. Entropy
-defaults to the compact `dense` view; LLR defaults to `full` so its signed
-colors are visible.
+adapted for signed scores: positive values use muted blue (`60,60,140`),
+negative values use muted red (`140,60,60`), all four rows share their scale,
+and the zero line remains visible. Entropy and LLR both default to `full`.
 """
         raw_llr_catalog = f"""
 The expanded public catalog contains **72 BigWigs**: the 40 immutable v1

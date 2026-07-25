@@ -424,8 +424,9 @@ group includes:
 - four signed A/C/G/T LLR tracks with an explicit zero for the reference
   allele.
 
-The signed LLR rows share a zero-centered scale: positive values are blue and
-negative values are red. The model-specific links below set entropy, the
+The signed LLR rows share a zero-centered scale: positive values use muted blue
+(`60,60,140`) and negative values use muted red (`140,60,60`), matching UCSC's
+hg38 `phyloP100way` track. The model-specific links below set entropy, the
 sequence logo, and signed LLR to `full`.
 
 ### Model-specific launch links

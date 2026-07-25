@@ -57,8 +57,9 @@ NUCLEOTIDE_COLORS = {
     "G": "255,166,0",
     "T": "255,0,0",
 }
-RAW_LLR_POSITIVE_COLOR = "0,0,255"
-RAW_LLR_NEGATIVE_COLOR = "255,0,0"
+# Match the muted signed colors used by UCSC's hg38 phyloP100way track.
+RAW_LLR_POSITIVE_COLOR = "60,60,140"
+RAW_LLR_NEGATIVE_COLOR = "140,60,60"
 _SHA_PATTERN = re.compile(r"[0-9a-f]{40}")
 _EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 
@@ -120,7 +121,7 @@ def browser_launch_links(*, include_raw_llr: bool = False) -> list[dict[str, str
             "hideTracks": "1",
             "ignoreCookie": "1",
             group: "show",
-            f"{group}Entropy": "dense",
+            f"{group}Entropy": "full",
             f"{group}Logo": "full",
         }
         if include_raw_llr:
@@ -469,7 +470,7 @@ def _render_track_db(
                 "type bigWig",
                 "shortLabel Entropy",
                 f"longLabel {label} entropy",
-                "visibility dense",
+                "visibility full",
                 "autoScale on",
                 "graphTypeDefault bar",
                 "maxHeightPixels 100:40:16",
@@ -562,9 +563,12 @@ def _render_hub_description(
     if raw_llr_artifact_revision is not None:
         raw_llr_text = f"""
 <p>Each model group also includes a full LLR composite with
-separate A/C/G/T rows. Positive values are blue, negative values are red, and
-the zero baseline is always visible. These additive tracks are pinned to
-artifact revision <code>{raw_llr_artifact_revision}</code>.</p>"""
+separate A/C/G/T rows. Positive values use muted blue
+<code>{RAW_LLR_POSITIVE_COLOR}</code>, and negative values use muted red
+<code>{RAW_LLR_NEGATIVE_COLOR}</code>, matching the signed colors of UCSC's
+hg38 phyloP100way track. The zero baseline is always visible. These additive
+tracks are pinned to artifact revision
+<code>{raw_llr_artifact_revision}</code>.</p>"""
     return f"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>GPN-Star genome-wide scores</title></head>
@@ -680,8 +684,10 @@ def _render_raw_llr_description(score_set: ScoreSetSpec, artifact_revision: str)
 <p>This CADD-inspired composite presents one A, C, G, and T BigWig row. At
 each covered position the reference allele is assigned the explicit zero
 baseline and each alternate allele retains its independently supplied
-LLR value. Positive LLR is blue and negative LLR is red. The four rows share
-automatic scaling and display the zero line.</p>
+LLR value. Positive scores use muted blue
+<code>{RAW_LLR_POSITIVE_COLOR}</code>, and negative scores use muted red
+<code>{RAW_LLR_NEGATIVE_COLOR}</code>, matching UCSC's hg38 phyloP100way
+track. The four rows share automatic scaling and display the zero line.</p>
 <p>Values are Float32 rounded to three decimals for browser visualization;
 Parquet remains the canonical full-precision score product.</p>
 <p>One-based Parquet positions were converted explicitly to zero-based,
@@ -1218,13 +1224,13 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         raise ValueError("each score set must define one multiWig")
     if track_db_text.count("logo on") != len(SCORE_SETS):
         raise ValueError("each score set must enable sequence-logo rendering")
-    if track_db_text.count("visibility dense") != len(SCORE_SETS):
-        raise ValueError("each entropy track must default to dense")
+    if "visibility dense" in track_db_text:
+        raise ValueError("no hub track may default to dense")
     expected_full_count = len(SCORE_SETS) * (
-        1 + (1 + len(RAW_LLR_TRACKS) if raw_llr_enabled else 0)
+        2 + (1 + len(RAW_LLR_TRACKS) if raw_llr_enabled else 0)
     )
     if track_db_text.count("visibility full") != expected_full_count:
-        raise ValueError("logo and LLR tracks must default to full")
+        raise ValueError("entropy, logo, and LLR tracks must default to full")
     if raw_llr_enabled:
         if track_db_text.count("compositeTrack on") != len(SCORE_SETS):
             raise ValueError("each score set must define one raw-LLR composite")

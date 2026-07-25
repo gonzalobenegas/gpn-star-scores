@@ -24,14 +24,15 @@ Each model group has three user-facing tracks after the issue #15 extension:
 
 - **Entropy** is a conventional one-dimensional quantitative BigWig graph,
   displayed as bars with automatic scaling and mean windowing when zoomed out.
-  Its default visibility is `dense`.
+  Its default visibility is `full`.
 - **Sequence logo** is one stacked `multiWig` with `logo on`. Its A, C, G, and
   T BigWigs are implementation subtracks rather than four separate top-level
   plots.
 - **Raw calibrated LLR** is a CADD-inspired composite with separate A, C, G,
   and T rows. It defaults to `full`, shares group scaling, displays the zero
-  line, uses `mean+whiskers` windowing, and colors positive values blue and
-  negative values red.
+  line, uses `mean+whiskers` windowing, and colors positive values muted blue
+  (`60,60,140`) and negative values muted red (`140,60,60`) to match UCSC's
+  hg38 `phyloP100way` track.
 
 The logo follows the established GPN hub colors: A green (`0,128,0`), C blue
 (`0,0,255`), G orange (`255,166,0`), and T red (`255,0,0`). This retains the
@@ -56,8 +57,9 @@ artifacts without replacing either v1 view. Their reference allele is an
 explicit zero; alternate alleles retain signed `llr_calibrated`.
 `abs_llr_calibrated` remains unused.
 
-Entropy defaults to `dense`. The LLR composite and its four allele rows default
-to `full` so positive-blue and negative-red values are visible immediately.
+Entropy, the sequence logo, the LLR composite, and its four allele rows default
+to `full` so the complete selected model and signed colors are visible
+immediately.
 
 ## Generated layout
 
