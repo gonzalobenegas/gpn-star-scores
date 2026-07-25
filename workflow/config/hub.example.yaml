@@ -9,6 +9,7 @@ hub:
   # entropy/logo URLs remain pinned to artifact_revision above.
   raw_llr_validation: /shared/project/scratch/gpn-star-scores/raw-llr/validation.json
   raw_llr_artifact_revision: RAW_LLR_ARTIFACT_COMMIT_SHA
+  source_revision: 40_CHARACTER_GITHUB_COMMIT_SHA
   expected_base_revision: 340a04b4ccc95d68ad3be4fc3b08d725f29842e4
   contact_email: gbenegas@berkeley.edu
   output_root: /shared/project/scratch/gpn-star-scores/hub

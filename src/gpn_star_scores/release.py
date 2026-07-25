@@ -5,11 +5,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
+from importlib.resources import files as resource_files
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -43,6 +45,27 @@ PAPER_TITLE = (
 VIEWER_URL = "https://datasets-server.huggingface.co/first-rows"
 HUGGING_FACE_URL = "https://huggingface.co"
 TRACK_HUB_URL = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}/resolve/main/ucsc/hub.txt"
+DEFAULT_DATASET_CONFIG = "gpn-star-hg38-m447-200m-llr"
+DATASET_CARD_SCORE_SET_ORDER = (
+    "gpn-star-hg38-v100-200m",
+    "gpn-star-hg38-m447-200m",
+    "gpn-star-hg38-p243-200m",
+    "mm39",
+    "gg6",
+    "dm6",
+    "ce11",
+    "tair10",
+)
+DATASET_CARD_UCSC_TOKENS = {
+    "gpn-star-hg38-v100-200m": "@@UCSC_V100_URL@@",
+    "gpn-star-hg38-m447-200m": "@@UCSC_M447_URL@@",
+    "gpn-star-hg38-p243-200m": "@@UCSC_P243_URL@@",
+    "mm39": "@@UCSC_MM39_URL@@",
+    "gg6": "@@UCSC_GG6_URL@@",
+    "dm6": "@@UCSC_DM6_URL@@",
+    "ce11": "@@UCSC_CE11_URL@@",
+    "tair10": "@@UCSC_TAIR10_URL@@",
+}
 CAPACITY_BLOCKER = (
     "Hugging Face organization capacity and numeric release headroom are not confirmed"
 )
@@ -321,11 +344,143 @@ def _dataset_size_category(row_count: int) -> str:
     )
 
 
+def _dataset_card_frontmatter(
+    configs: Sequence[Mapping[str, Any]], total_rows: int
+) -> list[str]:
+    """Render ordered Hugging Face dataset-card metadata."""
+
+    configs_by_name = {
+        str(config.get("config_name")): config
+        for config in configs
+        if isinstance(config, Mapping)
+    }
+    expected_names = {
+        f"{score_set}-{score_type}"
+        for score_set in DATASET_CARD_SCORE_SET_ORDER
+        for score_type in SCORE_TYPES
+    }
+    if set(configs_by_name) != expected_names or len(configs_by_name) != len(configs):
+        raise ValueError("dataset card requires the exact 16 configuration catalog")
+
+    frontmatter = [
+        "---",
+        "license: apache-2.0",
+        "pretty_name: GPN-Star genome-wide scores",
+        "tags:",
+        "  - biology",
+        "  - genomics",
+        "  - variant-effect-prediction",
+        "size_categories:",
+        f"  - {_dataset_size_category(total_rows)}",
+        "configs:",
+    ]
+    for score_set in DATASET_CARD_SCORE_SET_ORDER:
+        for score_type in SCORE_TYPES:
+            config = configs_by_name[f"{score_set}-{score_type}"]
+            data_files = config.get("data_files")
+            if (
+                not isinstance(data_files, Sequence)
+                or isinstance(data_files, (str, bytes))
+                or len(data_files) != 1
+                or not isinstance(data_files[0], Mapping)
+                or not isinstance(data_files[0].get("path"), str)
+            ):
+                raise ValueError(
+                    f"invalid dataset-card config: {config['config_name']}"
+                )
+            frontmatter.extend(
+                [
+                    f"  - config_name: {config['config_name']}",
+                    "    data_files:",
+                    "      - split: train",
+                    f"        path: {data_files[0]['path']}",
+                ]
+            )
+            if config["config_name"] == DEFAULT_DATASET_CONFIG:
+                frontmatter.append("    default: true")
+    frontmatter.append("---")
+    return frontmatter
+
+
+def _validate_dataset_card_revision(value: str | None, *, field: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value):
+        raise ValueError(f"{field} must be a lowercase 40-character commit SHA")
+    return value
+
+
+def _render_extended_dataset_card(
+    *,
+    frontmatter: Sequence[str],
+    total_rows: int,
+    hub_launch_links: Sequence[Mapping[str, str]],
+    v1_artifact_revision: str,
+    raw_llr_artifact_revision: str,
+    source_revision: str,
+    public_metadata_revision: str,
+    review_candidate: bool,
+) -> str:
+    """Render the issue #19 card from its package-owned body template."""
+
+    template = (
+        resource_files("gpn_star_scores")
+        .joinpath("dataset_card_template.md")
+        .read_text(encoding="utf-8")
+    )
+    template_parts = template.split("---", maxsplit=2)
+    if len(template_parts) != 3:
+        raise ValueError("dataset-card template must contain YAML frontmatter")
+    body = template_parts[2]
+
+    links_by_score_set: dict[str, str] = {}
+    for link in hub_launch_links:
+        score_set = link.get("score_set")
+        url = link.get("url")
+        if (
+            not isinstance(score_set, str)
+            or score_set in links_by_score_set
+            or not isinstance(url, str)
+        ):
+            raise ValueError("dataset card received invalid UCSC launch links")
+        links_by_score_set[score_set] = url
+    if set(links_by_score_set) != set(DATASET_CARD_UCSC_TOKENS):
+        raise ValueError("dataset card requires one UCSC link for every score set")
+
+    review_notice = ""
+    if review_candidate:
+        review_notice = (
+            "> **Local review candidate for issue #19.** This file is not the "
+            "live Hugging Face dataset card."
+        )
+    replacements = {
+        "@@REVIEW_NOTICE@@": review_notice,
+        "@@SOURCE_REVISION@@": source_revision,
+        "@@PUBLIC_METADATA_REVISION@@": public_metadata_revision,
+        "@@TOTAL_ROWS_FORMATTED@@": f"{total_rows:,}",
+        "@@V1_ARTIFACT_REVISION@@": v1_artifact_revision,
+        "@@RAW_LLR_ARTIFACT_REVISION@@": raw_llr_artifact_revision,
+        **{
+            token: links_by_score_set[score_set]
+            for score_set, token in DATASET_CARD_UCSC_TOKENS.items()
+        },
+    }
+    for token, value in replacements.items():
+        body = body.replace(token, value)
+    unresolved = sorted(set(re.findall(r"@@[A-Z0-9_]+@@", body)))
+    if unresolved:
+        raise ValueError(
+            "dataset-card template has unresolved tokens: " + ", ".join(unresolved)
+        )
+    return "\n".join(frontmatter) + body
+
+
 def render_dataset_card(
     release_manifest: Mapping[str, Any],
     *,
     hub_launch_links: Sequence[Mapping[str, str]] | None = None,
     raw_llr_validation: Mapping[str, Any] | None = None,
+    source_revision: str | None = None,
+    public_metadata_revision: str | None = None,
+    review_candidate: bool = False,
 ) -> str:
     """Render the public dataset card and its explicit data-file globs."""
 
@@ -366,29 +521,29 @@ def render_dataset_card(
         raise ValueError("dataset card requires valid raw-LLR extension metadata")
     configs = release_manifest["dataset_configs"]
     total_rows = sum(record["rows"] for record in release_manifest["parquet"]["files"])
-    frontmatter = [
-        "---",
-        "license: apache-2.0",
-        "pretty_name: GPN-Star genome-wide scores",
-        "tags:",
-        "  - biology",
-        "  - genomics",
-        "  - variant-effect-prediction",
-        "  - polars",
-        "size_categories:",
-        f"  - {_dataset_size_category(total_rows)}",
-        "configs:",
-    ]
-    for config in configs:
-        frontmatter.extend(
-            [
-                f"  - config_name: {config['config_name']}",
-                "    data_files:",
-                "      - split: train",
-                f"        path: {config['data_files'][0]['path']}",
-            ]
+    frontmatter = _dataset_card_frontmatter(configs, total_rows)
+    if raw_llr_enabled:
+        if not hub_launch_links:
+            raise ValueError("extended dataset card requires UCSC launch links")
+        return _render_extended_dataset_card(
+            frontmatter=frontmatter,
+            total_rows=total_rows,
+            hub_launch_links=hub_launch_links,
+            v1_artifact_revision=_validate_dataset_card_revision(
+                v1_provenance["revision"], field="v1 artifact revision"
+            ),
+            raw_llr_artifact_revision=_validate_dataset_card_revision(
+                raw_llr_provenance["revision"],
+                field="raw-LLR artifact revision",
+            ),
+            source_revision=_validate_dataset_card_revision(
+                source_revision, field="source_revision"
+            ),
+            public_metadata_revision=_validate_dataset_card_revision(
+                public_metadata_revision, field="public_metadata_revision"
+            ),
+            review_candidate=review_candidate,
         )
-    frontmatter.append("---")
 
     model_rows = []
     for score_set in SCORE_SETS:

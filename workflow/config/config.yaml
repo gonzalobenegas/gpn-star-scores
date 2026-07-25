@@ -203,6 +203,8 @@ hub:
   artifact_revision: null
   raw_llr_validation: null
   raw_llr_artifact_revision: null
+  # Exact gpn-star-scores commit that rendered an extended dataset card.
+  source_revision: null
   expected_base_revision: null
   contact_email: null
   output_root: results/hub
