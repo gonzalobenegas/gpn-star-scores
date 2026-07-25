@@ -94,6 +94,14 @@ if HUB_ENABLED:
         str(HUB_RAW_LLR_ARTIFACT_REVISION) if HUB_RAW_LLR_ARTIFACT_REVISION else None
     )
     HUB_EXPECTED_BASE_REVISION = str(HUB_CONFIG["expected_base_revision"])
+    HUB_SOURCE_REVISION = HUB_CONFIG.get("source_revision")
+    if HUB_RAW_LLR_VALIDATION is not None and not HUB_SOURCE_REVISION:
+        raise WorkflowError(
+            "hub.source_revision is required for the extended dataset card"
+        )
+    HUB_SOURCE_REVISION = (
+        str(HUB_SOURCE_REVISION) if HUB_SOURCE_REVISION is not None else None
+    )
     HUB_CONTACT_EMAIL = str(HUB_CONFIG["contact_email"])
     HUB_UDC_CACHE_ROOT = Path(HUB_CONFIG["udc_cache_root"])
     HUB_PUBLICATION_APPROVAL = HUB_CONFIG.get("publication_approval")
@@ -133,6 +141,8 @@ if HUB_ENABLED:
                     contact_email=HUB_CONTACT_EMAIL,
                     raw_llr_validation_path=HUB_RAW_LLR_VALIDATION,
                     raw_llr_artifact_revision=HUB_RAW_LLR_ARTIFACT_REVISION,
+                    source_revision=HUB_SOURCE_REVISION,
+                    public_metadata_revision=HUB_EXPECTED_BASE_REVISION,
                 )
                 Path(log[0]).parent.mkdir(parents=True, exist_ok=True)
                 Path(log[0]).write_text("built UCSC track hub\n")

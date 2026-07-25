@@ -171,6 +171,11 @@ def test_release_metadata_has_exact_configs_models_and_checksums(
     readme = (output / "README.md").read_text(encoding="utf-8")
     metadata = yaml.safe_load(readme.split("---", maxsplit=2)[1])
     assert len(metadata["configs"]) == 16
+    defaults = [config for config in metadata["configs"] if config.get("default")]
+    assert [config["config_name"] for config in defaults] == [
+        "gpn-star-hg38-m447-200m-llr"
+    ]
+    assert "polars" not in metadata["tags"]
     assert metadata["size_categories"] == ["n<1K"]
     assert release_module._dataset_size_category(51_402_120_888) == "10B<n<100B"
     assert all("bigwig" not in str(config) for config in metadata["configs"])

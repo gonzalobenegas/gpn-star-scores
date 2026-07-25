@@ -107,10 +107,10 @@ publisher report and never creates a second commit.
 
 ## UCSC presentation
 
-After artifact publication, configure the hub with both
-`raw_llr_validation` and `raw_llr_artifact_revision`. Existing entropy/logo
-URLs remain pinned to the immutable v1 artifact revision; only
-`llr_{A,C,G,T}` URLs use the new revision.
+After artifact publication, configure the hub with `raw_llr_validation`,
+`raw_llr_artifact_revision`, and the exact `source_revision` used to render the
+expanded dataset card. Existing entropy/logo URLs remain pinned to the
+immutable v1 artifact revision; only `llr_{A,C,G,T}` URLs use the new revision.
 
 The browser presentation adapts the
 [UCSC CADD v1.7 track](https://genome.ucsc.edu/cgi-bin/hgTrackUi?db=hg38&g=caddSuper1_7)

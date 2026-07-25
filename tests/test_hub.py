@@ -21,6 +21,7 @@ from gpn_star_scores.hub import (
     RAW_LLR_POSITIVE_COLOR,
     browser_launch_links,
     build_track_hub,
+    dataset_card_launch_links,
     hub_database_name,
     publication_candidate_sha256,
     publish_dataset_card,
@@ -34,12 +35,19 @@ from gpn_star_scores.hub import (
 )
 from gpn_star_scores.inventory import sha256_file
 from gpn_star_scores.raw_llr import RAW_LLR_BASES, RAW_LLR_TRACKS
-from gpn_star_scores.release import REPOSITORY_ID, TRACK_HUB_URL
+from gpn_star_scores.release import (
+    DEFAULT_DATASET_CONFIG,
+    REPOSITORY_ID,
+    TRACK_HUB_URL,
+    dataset_configs,
+)
 from gpn_star_scores.tracks import TRACKS, ucsc_assembly_name
 
 REPOSITORY_ROOT = Path(__file__).parents[1]
 ARTIFACT_REVISION = "a" * 40
 RAW_LLR_ARTIFACT_REVISION = "c" * 40
+SOURCE_REVISION = "d" * 40
+PUBLIC_METADATA_REVISION = "e" * 40
 
 
 def _release_manifest() -> dict[str, object]:
@@ -69,14 +77,14 @@ def _release_manifest() -> dict[str, object]:
         },
         "paper": {"title": "paper", "doi": "doi"},
         "source_inventory": {},
-        "parquet": {"files": []},
+        "parquet": {"files": [{"rows": 3}]},
         "bigwig": {
             "file_count": len(files),
             "total_bytes": 100 * len(files),
             "value_decimals": 3,
             "files": files,
         },
-        "dataset_configs": [],
+        "dataset_configs": dataset_configs(),
         "validation": {
             "bigwig_validation_passed": True,
             "expected_bigwig_files": len(files),
@@ -132,6 +140,10 @@ def _build_metadata(tmp_path: Path, *, include_raw_llr: bool = False) -> Path:
         raw_llr_validation_path=raw_llr_validation,
         raw_llr_artifact_revision=(
             RAW_LLR_ARTIFACT_REVISION if include_raw_llr else None
+        ),
+        source_revision=SOURCE_REVISION if include_raw_llr else None,
+        public_metadata_revision=(
+            PUBLIC_METADATA_REVISION if include_raw_llr else None
         ),
     )
     return metadata
@@ -214,6 +226,27 @@ def _write_pending_publication_report(metadata: Path, path: Path) -> None:
     )
 
 
+def test_launch_links_preserve_ucsc_defaults_and_show_one_model() -> None:
+    links = dataset_card_launch_links()
+    assert len(links) == len(SCORE_SETS)
+    for link in links:
+        query = parse_qs(urlparse(link["url"]).query)
+        assert query["ignoreCookie"] == ["1"]
+        assert "hideTracks" not in query
+        assert "position" not in query
+
+        shown_groups = [key for key, value in query.items() if value == ["show"]]
+        assert len(shown_groups) == 1
+        group = shown_groups[0]
+        assert query[f"{group}Entropy"] == ["full"]
+        assert query[f"{group}Logo"] == ["full"]
+        assert query[f"{group}RawLlr"] == ["full"]
+
+        hidden_groups = [key for key, value in query.items() if value == ["hide"]]
+        expected_hidden = 2 if link["ucsc_assembly"] == "hg38" else 0
+        assert len(hidden_groups) == expected_hidden
+
+
 def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> None:
     metadata = _build_metadata(tmp_path)
 
@@ -267,6 +300,9 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         assert query["hubUrl"] == [TRACK_HUB_URL]
         assert query["hideTracks"] == ["1"]
         assert query["ignoreCookie"] == ["1"]
+        group = next(key for key, value in query.items() if value == ["show"])
+        assert query[f"{group}Entropy"] == ["dense"]
+        assert query[f"{group}Logo"] == ["full"]
 
     hub_manifest = json.loads((metadata / "manifest" / "ucsc-hub.json").read_text())
     assert hub_manifest["assembly_count"] == 6
@@ -376,15 +412,69 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     assert "reference allele is assigned the explicit zero" in raw_description
     assert "Positive LLR is blue and negative LLR is red" in raw_description
     readme = (metadata / "README.md").read_text()
-    assert "`llr_A`, `llr_C`, `llr_G`, and `llr_T`" in readme
+    assert "four signed A/C/G/T LLR tracks" in readme
     assert (
-        "Entropy\ndefaults to the compact `dense` view; LLR defaults to `full`"
+        """**`llr_calibrated`:** More negative = more constrained or larger effect.
+
+**`abs_llr_calibrated`:** Magnitude of the variant's effect relative to a neutral substitution.
+Positive = larger effect than neutral; negative = smaller. Useful when the direction of effect
+is not relevant.
+
+**Example:**
+```
+chrom     pos ref alt  llr_calibrated  abs_llr_calibrated
+   21 5010065   T   A          -1.774               1.774
+   21 5010065   T   C          -1.550               1.550
+   21 5010065   T   G          -1.670               1.670
+```"""
         in readme
     )
-    assert "does not repeat validation of the 40 immutable v1 BigWigs" in readme
+    assert (
+        """**Interpretation:** ~1.0 = neutral; <1.0 = constrained; the lower the more constrained.
+
+**Example:**
+```
+chrom     pos ref  entropy_calibrated
+   21 5010065   T               0.486
+   21 5010066   A               0.644
+   21 5010067   A               0.591
+```"""
+        in readme
+    )
     assert "72 BigWigs" in readme
     assert ARTIFACT_REVISION in readme
     assert RAW_LLR_ARTIFACT_REVISION in readme
+    assert SOURCE_REVISION in readme
+    assert PUBLIC_METADATA_REVISION in readme
+    assert "@@" not in readme
+    assert "Which product to use" not in readme
+    assert "curated session" not in readme.lower()
+    assert "screenshot" not in readme.lower()
+    assert "Local review candidate" not in readme
+    metadata_frontmatter = readme.split("---", maxsplit=2)[1]
+    assert metadata_frontmatter.count("default: true") == 1
+    assert (
+        f"config_name: {DEFAULT_DATASET_CONFIG}\n"
+        "    data_files:\n"
+        "      - split: train\n"
+        "        path: data/gpn-star-hg38-m447-200m/llr/*.parquet\n"
+        "    default: true"
+    ) in metadata_frontmatter
+    species_order = (
+        "gpn-star-hg38-v100-200m",
+        "gpn-star-hg38-m447-200m",
+        "gpn-star-hg38-p243-200m",
+        "mm39",
+        "gg6",
+        "dm6",
+        "ce11",
+        "tair10",
+    )
+    table_offsets = [
+        readme.index(f"| `{score_set}` |", readme.index("### Score sets"))
+        for score_set in species_order
+    ]
+    assert table_offsets == sorted(table_offsets)
     hub_description = (metadata / "ucsc" / "description.html").read_text()
     assert "original entropy and sequence-logo data" in hub_description
     group_description = (

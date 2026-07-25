@@ -136,6 +136,38 @@ def browser_launch_links(*, include_raw_llr: bool = False) -> list[dict[str, str
     return links
 
 
+def dataset_card_launch_links() -> list[dict[str, str]]:
+    """Return dynamic-default README links that show one complete model."""
+
+    links = []
+    for score_set in SCORE_SETS:
+        group = _track_symbol(score_set.name)
+        settings = {
+            "db": hub_database_name(score_set.assembly),
+            "hubUrl": TRACK_HUB_URL,
+            "ignoreCookie": "1",
+            group: "show",
+            f"{group}Entropy": "full",
+            f"{group}Logo": "full",
+            f"{group}RawLlr": "full",
+        }
+        for sibling in SCORE_SETS:
+            if (
+                sibling.assembly == score_set.assembly
+                and sibling.name != score_set.name
+            ):
+                settings[_track_symbol(sibling.name)] = "hide"
+        query = urlencode(settings)
+        links.append(
+            {
+                "score_set": score_set.name,
+                "ucsc_assembly": hub_database_name(score_set.assembly),
+                "url": f"https://genome.ucsc.edu/cgi-bin/hgTracks?{query}",
+            }
+        )
+    return links
+
+
 def raw_llr_validation_links() -> list[dict[str, str]]:
     """Return raw-only UCSC links for focused issue-15 rendering checks."""
 
@@ -707,6 +739,8 @@ def build_track_hub(
     contact_email: str,
     raw_llr_validation_path: str | Path | None = None,
     raw_llr_artifact_revision: str | None = None,
+    source_revision: str | None = None,
+    public_metadata_revision: str | None = None,
 ) -> None:
     """Build the complete hub and updated dataset card at a temporary sibling."""
 
@@ -814,6 +848,9 @@ def build_track_hub(
                     )
 
         launch_links = browser_launch_links(include_raw_llr=raw_llr_records is not None)
+        card_launch_links = (
+            dataset_card_launch_links() if raw_llr_records is not None else launch_links
+        )
         validation_links = (
             {link["score_set"]: link for link in raw_llr_validation_links()}
             if raw_llr_records is not None
@@ -823,8 +860,10 @@ def build_track_hub(
             temporary / "README.md",
             render_dataset_card(
                 extended_release_manifest or release_manifest,
-                hub_launch_links=launch_links,
+                hub_launch_links=card_launch_links,
                 raw_llr_validation=raw_llr_validation,
+                source_revision=source_revision,
+                public_metadata_revision=public_metadata_revision,
             ),
         )
         hub_files = [
@@ -1199,7 +1238,10 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
     readme = (metadata_root / "README.md").read_text(encoding="utf-8")
     if TRACK_HUB_URL not in readme:
         raise ValueError("dataset card does not link the public UCSC hub")
-    if any(link["url"] not in readme for link in launch_links.values()):
+    readme_links = (
+        dataset_card_launch_links() if raw_llr_enabled else launch_links.values()
+    )
+    if any(link["url"] not in readme for link in readme_links):
         raise ValueError("dataset card lacks a model-specific UCSC launch link")
     return manifest
 
@@ -2323,6 +2365,8 @@ def _parser() -> argparse.ArgumentParser:
     build.add_argument("--artifact-revision", required=True)
     build.add_argument("--raw-llr-validation", type=Path)
     build.add_argument("--raw-llr-artifact-revision")
+    build.add_argument("--source-revision")
+    build.add_argument("--public-metadata-revision")
     build.add_argument("--contact-email", required=True)
 
     validate = commands.add_parser("validate")
@@ -2415,6 +2459,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             contact_email=args.contact_email,
             raw_llr_validation_path=args.raw_llr_validation,
             raw_llr_artifact_revision=args.raw_llr_artifact_revision,
+            source_revision=args.source_revision,
+            public_metadata_revision=args.public_metadata_revision,
         )
         return
     if args.command == "validate":

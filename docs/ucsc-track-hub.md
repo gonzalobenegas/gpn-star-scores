@@ -108,9 +108,10 @@ the user-facing launch links intentionally open all views.
 Copy `workflow/config/hub.example.yaml` outside Git and replace its paths and
 resource placeholders. `release_manifest` must be issue #4's validated
 `manifest/release.json`; `artifact_revision` is the immutable commit containing
-the 40 v1 BigWigs. Configure `raw_llr_validation` and
-`raw_llr_artifact_revision` together to add issue #15. Use shared project
-scratch for `udc_cache_root`, not node-local `/tmp`.
+the 40 v1 BigWigs. Configure `raw_llr_validation`,
+`raw_llr_artifact_revision`, and the exact `source_revision` together to add
+issue #15 and render the expanded dataset card. Use shared project scratch for
+`udc_cache_root`, not node-local `/tmp`.
 
 Run the local preflight without the SCF profile:
 
