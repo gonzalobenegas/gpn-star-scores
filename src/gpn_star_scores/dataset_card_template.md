@@ -79,6 +79,8 @@ configs:
 
 @@REVIEW_NOTICE@@
 
+[![GPN-Star tracks in the UCSC Genome Browser](https://raw.githubusercontent.com/gonzalobenegas/gpn-star-scores/main/docs/images/gpn-star-ucsc-example.png)](https://genome.ucsc.edu/s/gbenegas/gpn%2Dstar%2Dexample)
+
 Genome-wide, mutation-rate-calibrated GPN-Star constraint and variant scores for
 eight score sets covering human, mouse, chicken, *D. melanogaster*,
 *C. elegans*, and *A. thaliana*. Canonical scores are available as
@@ -234,183 +236,58 @@ chrom     pos ref  entropy_calibrated
 
 ## Query the scores in code
 
-The examples use [Polars](https://docs.pola.rs/) lazy scans, explicit
-chromosome shards, bounded position filters, and column projection. They work
-against the public repository without credentials.
+This example joins UKB fine-mapped variants with GPN-Star (M) LLR scores. It
+filters each chromosome shard to the exact requested positions before joining.
 
-Use `@main` for exploration:
+The example contains 11,400 variants across the 22 autosomes. On an AMD EPYC
+7543 CPU node with 16 allocated CPUs and Polars 1.42.1, the remote version took
+10 minutes 41 seconds and the local version took 5.94 seconds.
 
-```python
-EXPLORATION_ROOT = "hf://datasets/songlab/gpn-star-scores@main/data"
-```
+The local version requires 22 Parquet shards totaling about 52 GiB.
 
-Pin an immutable Hugging Face commit for reproducible analysis:
-
-```python
-REVISION = "@@PUBLIC_METADATA_REVISION@@"
-ROOT = f"hf://datasets/songlab/gpn-star-scores@{REVISION}/data"
-```
-
-### Query a small LLR interval
-
-LLR comes first because it is the variant-level product. Select one chromosome
-shard before collecting:
+Runtime depends not only on the number of variants, but also on their genomic
+locality. Variants clustered within one gene generally touch fewer Parquet row
+groups and run faster than sparse variants spread across a chromosome or the
+whole genome.
 
 ```python
 import polars as pl
 
-REVISION = "@@PUBLIC_METADATA_REVISION@@"
-root = f"hf://datasets/songlab/gpn-star-scores@{REVISION}/data"
+keys = ["chrom", "pos", "ref", "alt"]
 
-score_set = "gpn-star-hg38-m447-200m"
-chrom = "22"
-start = 20_000_000  # one-based, inclusive
-end = 20_001_000    # one-based, inclusive
-
-llr_interval = (
-    pl.scan_parquet(f"{root}/{score_set}/llr/llr_chr{chrom}.parquet")
-    .filter(
-        (pl.col("chrom") == chrom)
-        & pl.col("pos").is_between(start, end)
-    )
-    .select(
-        "chrom",
-        "pos",
-        "ref",
-        "alt",
-        "llr_calibrated",
-        "abs_llr_calibrated",
-    )
-    .collect()
-)
-```
-
-To select one variant from that bounded result:
-
-```python
-variant = llr_interval.filter(
-    (pl.col("pos") == 20_000_001)
-    & (pl.col("ref") == "A")
-    & (pl.col("alt") == "G")
-)
-```
-
-### Annotate a user variant table by chromosome
-
-Bound each chromosome scan to the positions present in that partition before
-joining:
-
-```python
-import polars as pl
-
-REVISION = "@@PUBLIC_METADATA_REVISION@@"
-root = f"hf://datasets/songlab/gpn-star-scores@{REVISION}/data"
-score_set = "gpn-star-hg38-m447-200m"
-
-variants = pl.DataFrame(
-    {
-        "chrom": ["22", "22"],
-        "pos": [20_000_001, 20_000_101],
-        "ref": ["A", "C"],
-        "alt": ["G", "T"],
-    }
+variants = pl.read_parquet(
+    "hf://datasets/songlab/ukb_finemapped_nc_traitgym/test.parquet",
+    columns=keys,
 )
 
-annotated_parts = []
-for chrom in variants["chrom"].unique().sort():
-    variants_chr = variants.filter(pl.col("chrom") == chrom)
-    start = variants_chr["pos"].min()
-    end = variants_chr["pos"].max()
-
-    llr_chr = (
-        pl.scan_parquet(
-            f"{root}/{score_set}/llr/llr_chr{chrom}.parquet"
-        )
-        .filter(
-            (pl.col("chrom") == chrom)
-            & pl.col("pos").is_between(start, end)
-        )
-        .select(
-            "chrom",
-            "pos",
-            "ref",
-            "alt",
-            "llr_calibrated",
-            "abs_llr_calibrated",
-        )
-    )
-    annotated_parts.append(
-        variants_chr.lazy()
-        .join(
-            llr_chr,
-            on=["chrom", "pos", "ref", "alt"],
-            how="left",
-        )
-        .collect()
-    )
-
-annotated = pl.concat(annotated_parts)
-```
-
-This pattern avoids treating an unbounded whole-genome LLR scan as a routine
-annotation operation.
-
-### Query entropy over a small interval
-
-```python
-import polars as pl
-
-REVISION = "@@PUBLIC_METADATA_REVISION@@"
-root = f"hf://datasets/songlab/gpn-star-scores@{REVISION}/data"
-
-entropy = (
-    pl.scan_parquet(f"{root}/mm39/entropy/entropy_chr1.parquet")
-    .filter(
-        (pl.col("chrom") == "1")
-        & pl.col("pos").is_between(1_000_000, 1_001_000)
-    )
-    .select("chrom", "pos", "ref", "entropy_calibrated")
-    .collect()
+# Remote scores (no full score download required):
+score_root = (
+    "hf://datasets/songlab/gpn-star-scores/"
+    "data/gpn-star-hg38-m447-200m/llr"
 )
-```
 
-<details>
-<summary>Scan selected chromosomes with explicit projection</summary>
+# Local scores (use this instead after downloading the LLR shards):
+# score_root = "/path/to/gpn-star-scores/data/gpn-star-hg38-m447-200m/llr"
 
-This example selects two named shards and bounds each scan before collection:
+results = []
 
-```python
-import polars as pl
+for chrom in variants.get_column("chrom").unique(maintain_order=True):
+    chrom_variants = variants.filter(pl.col("chrom") == chrom)
+    positions = chrom_variants.get_column("pos").unique().to_list()
 
-REVISION = "@@PUBLIC_METADATA_REVISION@@"
-root = f"hf://datasets/songlab/gpn-star-scores@{REVISION}/data"
-
-intervals = {
-    "2L": (1_000_000, 1_001_000),
-    "X": (5_000_000, 5_001_000),
-}
-
-parts = []
-for chrom, (start, end) in intervals.items():
-    part = (
-        pl.scan_parquet(f"{root}/dm6/llr/llr_chr{chrom}.parquet")
-        .filter(
-            (pl.col("chrom") == chrom)
-            & pl.col("pos").is_between(start, end)
-        )
-        .select("chrom", "pos", "ref", "alt", "llr_calibrated")
-        .collect()
+    scores = (
+        pl.scan_parquet(f"{score_root}/llr_chr{chrom}.parquet")
+        .filter(pl.col("pos").is_in(positions))
     )
-    parts.append(part)
 
-selected = pl.concat(parts)
+    results.append(
+        chrom_variants.lazy()
+        .join(scores, on=keys, how="left")
+        .collect(engine="streaming")
+    )
+
+annotated = pl.concat(results)
 ```
-
-</details>
-
-Lazy scans allow predicate and projection pushdown. The release validation
-separately verifies representative anonymous `hf://` queries and byte-range
-reads without requiring full chromosome downloads.
 
 ## Use the UCSC Genome Browser
 
