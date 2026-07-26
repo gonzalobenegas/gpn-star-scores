@@ -115,7 +115,7 @@ immutable LLR Parquet shards and produces `llr_A`, `llr_C`, `llr_G`, and
 `abs_llr_calibrated` is not used or derived. Generation, validation, and
 publication are isolated from the 40 immutable v1 BigWigs, so the post-v1
 workflow neither rebuilds nor revalidates them.
-The public browser catalog contains 72 BigWigs: the 40 v1 tracks retain
+The public Hugging Face dataset contains 72 BigWigs: the 40 v1 tracks retain
 immutable artifact revision `5c799b2ec6aa089f0caa8294ae72adb4510f81ae`,
 and the 32 raw LLR tracks use additive artifact revision
 `47e7f051113abab49f04f43f9107cae2cbbfd34d`. The published dataset card and
@@ -141,23 +141,27 @@ preview indexing does not block access to the public release.
 Issue #6's opt-in workflow is documented in
 [`docs/ucsc-track-hub.md`](docs/ucsc-track-hub.md). It builds one
 multi-assembly hub with eight model groups. Each group contains a conventional
-one-dimensional entropy signal, one stacked A/C/G/T sequence-logo view, and
-the issue #15 raw signed-LLR composite after that extension is enabled.
-Entropy and LLR default to `full`. Positive LLR values use muted blue
-(`60,60,140`) and negative values use muted red (`140,60,60`), matching UCSC's
-hg38 `phyloP100way` track. The derived sequence logo retains nucleotide colors.
-Existing v1 URLs stay pinned to their immutable issue #4 revision, while the
-32 additive URLs pin their own artifact revision. Extension validation checks
-only the new BigWigs; `hubCheck` still validates the complete hub structure.
-Afterward, a separate approval-gated target can update the public dataset card
-and `ucsc/` metadata in one commit.
+stacked A/C/G/T sequence-logo view and the issue #15 signed-LLR composite,
+displayed as `-LLR`. Entropy BigWigs remain in Hugging Face but are absent from
+the hub, which references 64 logo/LLR BigWigs.
+
+The logo and `-LLR` default to 16 pixels high. `-LLR` defaults to dense
+grayscale with display-time negation and a 0–10 viewing range. When expanded,
+negative source LLR appears as positive `-LLR` in muted blue (`60,60,140`);
+positive source LLR appears as negative `-LLR` in muted red (`140,60,60`).
+Existing v1 logo URLs stay pinned to their immutable issue #4 revision, while
+the 32 additive LLR URLs pin their own artifact revision. Presentation-only
+updates use metadata-only validation; `hubCheck` still validates the complete
+hub structure without requesting a BigWig. A separate approval-gated target
+can update the public dataset card and `ucsc/` metadata in one commit.
 The committed
 [`reports/ucsc-track-hub-preflight`](reports/ucsc-track-hub-preflight/README.md)
 records the passing production preflight, measured resources, anonymous public
 validation, and base/zoom browser rendering for all eight model groups. The
 public hub is available from the dataset's stable
 [`resolve/main/ucsc/hub.txt`](https://huggingface.co/datasets/songlab/gpn-star-scores/resolve/main/ucsc/hub.txt)
-entry URL, while all 40 BigWigs remain pinned to the immutable issue #4
+entry URL. Its 32 logo BigWigs remain pinned to the immutable issue #4
+artifact revision, and its 32 LLR BigWigs remain pinned to the issue #15
 artifact revision.
 
 ## End-to-end release QA

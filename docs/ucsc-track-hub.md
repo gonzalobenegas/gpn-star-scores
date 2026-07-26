@@ -20,19 +20,20 @@ The hub contains six UCSC databases and eight model groups:
 | `tair10` | `GCF_000001735.4` | 1 |
 | `mm39` | `mm39` | 1 |
 
-Each model group has three user-facing tracks after the issue #15 extension:
+Each model group has two user-facing tracks after the issue #28 presentation
+update:
 
-- **Entropy** is a conventional one-dimensional quantitative BigWig graph,
-  displayed as bars with automatic scaling and mean windowing when zoomed out.
-  Its default visibility is `full`.
 - **Sequence logo** is one stacked `multiWig` with `logo on`. Its A, C, G, and
   T BigWigs are implementation subtracks rather than four separate top-level
-  plots.
-- **Raw calibrated LLR** is a CADD-inspired composite with separate A, C, G,
-  and T rows. It defaults to `full`, shares group scaling, displays the zero
-  line, uses `mean+whiskers` windowing, and colors positive values muted blue
-  (`60,60,140`) and negative values muted red (`140,60,60`) to match UCSC's
-  hg38 `phyloP100way` track.
+  plots. It defaults to `full` at 16 pixels high.
+- **`-LLR`** is a CADD-inspired composite with separate A, C, G, and T rows.
+  It defaults to dense grayscale at 16 pixels, disables automatic scaling, uses
+  a 0–10 viewing range, negates values at display time, displays the zero line,
+  and uses `mean+whiskers` windowing.
+
+The entropy BigWigs remain available in
+[`songlab/gpn-star-scores`](https://huggingface.co/datasets/songlab/gpn-star-scores)
+but are not referenced by the UCSC hub.
 
 The logo follows the established GPN hub colors: A green (`0,128,0`), C blue
 (`0,0,255`), G orange (`255,166,0`), and T red (`255,0,0`). This retains the
@@ -43,23 +44,24 @@ The layout and settings follow the
 and
 [trackDb definition](https://genome.ucsc.edu/goldenPath/help/trackDb/trackDbHub.html).
 
-The entropy track contains the supplied `entropy_calibrated` field. The logo
-sets the reference logit to zero, assigns the three supplied
+The logo sets the reference logit to zero, assigns the three supplied
 `llr_calibrated` values to alternate bases, computes a stable Float64 softmax
 and base-2 entropy `H`, and displays `p(base) * (2 - H)`. Final browser values
 are Float32 rounded to three decimals. Parquet remains the canonical
 full-precision score product, and `abs_llr_calibrated` is not used or derived.
-The descriptions do not invent biological directionality or calibration
-semantics that remain pending author review.
+The logo descriptions do not add biological directionality or calibration
+semantics beyond the documented transformation.
 
-Issue #15 adds those raw calibrated-LLR tracks as 32 explicitly versioned
-artifacts without replacing either v1 view. Their reference allele is an
+Issue #15 adds the 32 signed LLR artifacts. Their reference allele is an
 explicit zero; alternate alleles retain signed `llr_calibrated`.
-`abs_llr_calibrated` remains unused.
+`abs_llr_calibrated` remains unused. Issue #28 leaves those files unchanged and
+sets `negateValues on`, so the displayed value is `-llr_calibrated`. Higher
+displayed values correspond to more-negative source LLR and therefore greater
+constraint or a larger predicted functional effect.
 
-Entropy, the sequence logo, the LLR composite, and its four allele rows default
-to `full` so the complete selected model and signed colors are visible
-immediately.
+Dense mode is grayscale. When expanded, negative source LLR appears as positive
+`-LLR` in muted blue (`60,60,140`), while positive source LLR appears as
+negative `-LLR` in muted red (`140,60,60`).
 
 ## Generated layout
 
@@ -82,10 +84,11 @@ metadata/
 ```
 
 Every `bigDataUrl` pins an immutable BigWig artifact revision rather than
-`main`. The 40 v1 tracks retain the issue #4 revision, while the 32 issue #15
-tracks pin their additive artifact revision. The public entry URL follows
-`main` so validated metadata updates can be delivered without silently
-changing either artifact set:
+`main`. The 32 v1 logo tracks retain the issue #4 revision, while the 32 issue
+#15 LLR tracks pin their additive artifact revision. The eight entropy BigWigs
+remain in the 72-file release catalog but have no `bigDataUrl` in the hub. The
+public entry URL follows `main` so validated metadata updates can be delivered
+without silently changing either artifact set:
 
 ```text
 https://huggingface.co/datasets/songlab/gpn-star-scores/resolve/main/ucsc/hub.txt
@@ -93,17 +96,16 @@ https://huggingface.co/datasets/songlab/gpn-star-scores/resolve/main/ucsc/hub.tx
 
 The generated dataset card links that URL prominently and provides eight
 model-specific browser launch links. Each launch link uses the same hub while
-hiding unrelated tracks and opening the selected model's entropy, logo, and
-raw-LLR views when the extension is enabled. `manifest/ucsc-hub.json` records
-every generated control-file checksum, all 72 pinned BigWig URLs and
-identities, the six database names, and all eight model groups and launch
-URLs. The v2 `manifest/release.json` combines the trusted 40-track v1 catalog
-with the 32 focused raw-LLR identities and records their two immutable
-artifact revisions without revalidating the v1 files.
+hiding unrelated tracks and opening the selected model's logo at `full` and
+`-LLR` at `dense`. Version 3 of `manifest/ucsc-hub.json` records every generated
+control-file checksum, the 64 active logo/LLR BigWig URLs and identities, the
+six database names, and all eight model groups and launch URLs. The v2
+`manifest/release.json` remains the complete 72-BigWig catalog, including all
+eight entropy files, and records both immutable artifact revisions.
 For each score set, the hub manifest also records a
-`raw_llr_validation_url` that explicitly hides entropy and logo and opens only
-the raw-LLR composite. Use those eight URLs for issue #15 rendering evidence;
-the user-facing launch links intentionally open all views.
+`raw_llr_validation_url` that hides the logo and opens only the `-LLR`
+composite in dense mode. Use those eight URLs for focused rendering evidence;
+the user-facing launch links intentionally open both current views.
 
 ## Build and validation
 
@@ -138,20 +140,20 @@ HTTP discovery path. It requires:
 - non-empty direct `bigWigSummary` values at that base and across a
   surrounding zoom window.
 
-For the issue #15 extension, range, header, base, and zoom queries cover only
-the 32 new raw-LLR tracks; the 40 immutable v1 BigWigs are not revalidated.
-`hubCheck -noTracks` still covers the complete hub structure without opening
-the 40 previous BigWigs. After publication, the
-validator repeats that focused check against the immutable hub commit and
-verifies every published hub/control file byte-for-byte without credentials.
-A final manual browser pass still records that each assembly/model group
-renders at base and zoomed-out scales; automation supplements rather than
-replaces that visual check.
+For the original issue #15 extension, range, header, base, and zoom queries
+covered only the 32 new LLR tracks; the 40 immutable v1 BigWigs were not
+revalidated. Presentation-only updates such as issue #28 instead use
+metadata-only validation: `hubCheck -noTracks -checkSettings` validates the
+complete structure, and no BigWig range, header, base, or zoom request occurs.
+After publication, the validator repeats that metadata-only check against the
+immutable hub commit and verifies every published control file byte-for-byte
+without credentials. A final manual browser pass confirms the visible defaults.
 
 CADD's native `mouseOverFunction noAverage` setting is intentionally omitted:
 `hubCheck -noTracks -checkSettings` rejects it as unsupported in public hubs.
-The issue #15 LLR composite, its four allele rows, and its launch links use
-`full` by default so the configured signed colors are visible.
+The `-LLR` composite and launch links use `dense` by default; its children
+inherit the composite visibility. Users can expand the rows to see the
+configured post-negation blue/red colors.
 
 The issue #6 read-only production run passed all of these automated checks for
 6 assemblies, 8 score sets, and 40 tracks. Its counts, representative loci,

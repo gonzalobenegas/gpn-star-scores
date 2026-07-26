@@ -57,6 +57,7 @@ NUCLEOTIDE_COLORS = {
     "G": "255,166,0",
     "T": "255,0,0",
 }
+HUB_LOGO_TRACKS = tuple(NUCLEOTIDE_COLORS)
 # Match the muted signed colors used by UCSC's hg38 phyloP100way track.
 RAW_LLR_POSITIVE_COLOR = "60,60,140"
 RAW_LLR_NEGATIVE_COLOR = "140,60,60"
@@ -121,11 +122,10 @@ def browser_launch_links(*, include_raw_llr: bool = False) -> list[dict[str, str
             "hideTracks": "1",
             "ignoreCookie": "1",
             group: "show",
-            f"{group}Entropy": "full",
             f"{group}Logo": "full",
         }
         if include_raw_llr:
-            settings[f"{group}RawLlr"] = "full"
+            settings[f"{group}RawLlr"] = "dense"
         query = urlencode(settings)
         links.append(
             {
@@ -148,9 +148,8 @@ def dataset_card_launch_links() -> list[dict[str, str]]:
             "hubUrl": TRACK_HUB_URL,
             "ignoreCookie": "1",
             group: "show",
-            f"{group}Entropy": "full",
             f"{group}Logo": "full",
-            f"{group}RawLlr": "full",
+            f"{group}RawLlr": "dense",
         }
         for sibling in SCORE_SETS:
             if (
@@ -181,9 +180,8 @@ def raw_llr_validation_links() -> list[dict[str, str]]:
             "hideTracks": "1",
             "ignoreCookie": "1",
             group: "show",
-            f"{group}Entropy": "hide",
             f"{group}Logo": "hide",
-            f"{group}RawLlr": "full",
+            f"{group}RawLlr": "dense",
         }
         links.append(
             {
@@ -452,7 +450,6 @@ def _render_track_db(
     lines: list[str] = []
     for priority, score_set in enumerate(score_sets, start=1):
         group = _track_symbol(score_set.name)
-        entropy = f"{group}Entropy"
         logo = f"{group}Logo"
         raw_llr = f"{group}RawLlr"
         label = _score_set_label(score_set)
@@ -463,19 +460,6 @@ def _render_track_db(
                 f"shortLabel {label}",
                 f"longLabel {label} model score tracks",
                 f"priority {priority}",
-                f"dataVersion {artifact_revision}",
-                "",
-                f"track {entropy}",
-                f"parent {group}",
-                "type bigWig",
-                "shortLabel Entropy",
-                f"longLabel {label} entropy",
-                "visibility full",
-                "autoScale on",
-                "graphTypeDefault bar",
-                "maxHeightPixels 100:40:16",
-                "windowingFunction mean",
-                f"bigDataUrl {records[(score_set.name, 'entropy')]['url']}",
                 f"dataVersion {artifact_revision}",
                 "",
                 f"track {logo}",
@@ -489,7 +473,7 @@ def _render_track_db(
                 "autoScale off",
                 "viewLimits 0:2",
                 "viewLimitsMax 0:2",
-                "maxHeightPixels 100:50:16",
+                "maxHeightPixels 100:16:16",
                 "logo on",
                 "visibility full",
                 f"dataVersion {artifact_revision}",
@@ -517,15 +501,17 @@ def _render_track_db(
                     f"parent {group}",
                     "compositeTrack on",
                     "type bigWig",
-                    "shortLabel LLR",
-                    f"longLabel {label} LLR by allele",
-                    "visibility full",
-                    "autoScale group",
+                    "shortLabel -LLR",
+                    f"longLabel {label} -LLR by allele",
+                    "visibility dense",
+                    "autoScale off",
                     "alwaysZero on",
+                    "viewLimits 0:10",
+                    "negateValues on",
                     "yLineOnOff on",
                     "yLineMark 0",
                     "graphTypeDefault bar",
-                    "maxHeightPixels 100:40:16",
+                    "maxHeightPixels 100:16:16",
                     "windowingFunction mean+whiskers",
                     f"dataVersion {raw_llr_artifact_revision}",
                     "",
@@ -538,10 +524,9 @@ def _render_track_db(
                         f"    track {raw_llr}{base}",
                         f"    parent {raw_llr} on",
                         "    type bigWig",
-                        f"    shortLabel LLR {base}",
-                        f"    longLabel {label} {base} LLR",
+                        f"    shortLabel -LLR {base}",
+                        f"    longLabel {label} {base} -LLR",
                         f"    priority {base_priority}",
-                        "    visibility full",
                         f"    color {RAW_LLR_POSITIVE_COLOR}",
                         f"    altColor {RAW_LLR_NEGATIVE_COLOR}",
                         (
@@ -562,22 +547,25 @@ def _render_hub_description(
     raw_llr_text = ""
     if raw_llr_artifact_revision is not None:
         raw_llr_text = f"""
-<p>Each model group also includes a full LLR composite with
-separate A/C/G/T rows. Positive values use muted blue
-<code>{RAW_LLR_POSITIVE_COLOR}</code>, and negative values use muted red
-<code>{RAW_LLR_NEGATIVE_COLOR}</code>, matching the signed colors of UCSC's
-hg38 phyloP100way track. The zero baseline is always visible. These additive
-tracks are pinned to artifact revision
+<p>Each model group also includes a compact <code>-LLR</code> composite with
+separate A/C/G/T rows. UCSC negates the signed source LLR values at display
+time and clips the default view to 0–10, so higher displayed values correspond
+to more-negative source LLR and therefore greater constraint or a larger
+predicted functional effect. Dense mode is grayscale. When expanded, negative
+source LLR appears as positive <code>-LLR</code> in muted blue
+<code>{RAW_LLR_POSITIVE_COLOR}</code>, while positive source LLR appears as
+negative <code>-LLR</code> in muted red
+<code>{RAW_LLR_NEGATIVE_COLOR}</code>. These tracks are pinned to artifact revision
 <code>{raw_llr_artifact_revision}</code>.</p>"""
     return f"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>GPN-Star genome-wide scores</title></head>
 <body>
 <h1>GPN-Star genome-wide scores</h1>
-<p>This hub exposes entropy and LLR-derived sequence-logo
-tracks for eight GPN-Star score sets across six UCSC assemblies.</p>
-<p>The original entropy and sequence-logo data are pinned to Hugging Face
-artifact revision
+<p>This hub exposes LLR-derived sequence-logo tracks for eight GPN-Star score
+sets across six UCSC assemblies. Entropy BigWigs remain available from the
+Hugging Face dataset but are not displayed in this hub.</p>
+<p>The sequence-logo data are pinned to Hugging Face artifact revision
 <code>{artifact_revision}</code>. Parquet remains the canonical score product;
 BigWig values are three-decimal Float32 visualization values.</p>
 {raw_llr_text}
@@ -596,9 +584,10 @@ def _render_group_description(
 ) -> str:
     label = _score_set_label(score_set)
     model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
+    repository_url = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}"
     revision_text = (
-        "The entropy and sequence-logo browser tracks are pinned to artifact "
-        f"revision <code>{artifact_revision}</code>. The LLR "
+        "The sequence-logo browser track is pinned to artifact "
+        f"revision <code>{artifact_revision}</code>. The -LLR "
         "tracks are pinned to artifact revision "
         f"<code>{raw_llr_artifact_revision}</code>."
         if raw_llr_artifact_revision is not None
@@ -617,28 +606,7 @@ def _render_group_description(
 <p>Source Parquet uses one-based positions and supplied assembly chromosome
 names. These browser tracks use UCSC chromosome names and zero-based,
 half-open one-base intervals. {revision_text}</p>
-</body>
-</html>
-"""
-
-
-def _render_entropy_description(score_set: ScoreSetSpec, artifact_revision: str) -> str:
-    label = _score_set_label(score_set)
-    model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
-    return f"""<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>{html.escape(label)} entropy</title></head>
-<body>
-<h1>{html.escape(label)} entropy</h1>
-<p>Model: <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>
-({html.escape(score_set.model_description)}).</p>
-<p>This quantitative track contains GPN-Star entropy values. It is a Float32
-browser view rounded to three decimals; Parquet is the canonical full-precision
-score product. The track does not add an unreviewed biological directionality
-for high or low values.</p>
-<p>One-based Parquet positions were converted explicitly to zero-based,
-half-open one-base BigWig intervals with UCSC chromosome names. Artifact
-revision: <code>{artifact_revision}</code>.</p>
+<p><a href="{repository_url}">GPN-Star scores on Hugging Face</a></p>
 </body>
 </html>
 """
@@ -647,6 +615,7 @@ revision: <code>{artifact_revision}</code>.</p>
 def _render_logo_description(score_set: ScoreSetSpec, artifact_revision: str) -> str:
     label = _score_set_label(score_set)
     model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
+    repository_url = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}"
     return f"""<!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><title>{html.escape(label)} sequence logo</title></head>
@@ -666,6 +635,7 @@ scores and their full precision.</p>
 <p>One-based Parquet positions were converted explicitly to zero-based,
 half-open one-base BigWig intervals with UCSC chromosome names. Artifact
 revision: <code>{artifact_revision}</code>.</p>
+<p><a href="{repository_url}">GPN-Star scores on Hugging Face</a></p>
 </body>
 </html>
 """
@@ -674,25 +644,32 @@ revision: <code>{artifact_revision}</code>.</p>
 def _render_raw_llr_description(score_set: ScoreSetSpec, artifact_revision: str) -> str:
     label = _score_set_label(score_set)
     model_url = f"{HUGGING_FACE_URL}/{score_set.model_id}"
+    repository_url = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}"
     return f"""<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>{html.escape(label)} LLR</title></head>
+<head><meta charset="utf-8"><title>{html.escape(label)} -LLR</title></head>
 <body>
-<h1>{html.escape(label)} LLR</h1>
+<h1>{html.escape(label)} -LLR</h1>
 <p>Model: <a href="{model_url}"><code>{html.escape(score_set.model_id)}</code></a>
 ({html.escape(score_set.model_description)}).</p>
 <p>This CADD-inspired composite presents one A, C, G, and T BigWig row. At
 each covered position the reference allele is assigned the explicit zero
 baseline and each alternate allele retains its independently supplied
-LLR value. Positive scores use muted blue
-<code>{RAW_LLR_POSITIVE_COLOR}</code>, and negative scores use muted red
-<code>{RAW_LLR_NEGATIVE_COLOR}</code>, matching UCSC's hg38 phyloP100way
-track. The four rows share automatic scaling and display the zero line.</p>
+LLR value. UCSC applies <code>negateValues on</code> at display time, so the
+displayed value is <code>-llr_calibrated</code>; the BigWig values themselves
+are unchanged. Higher displayed values correspond to more-negative source LLR
+and therefore greater constraint or a larger predicted functional effect.</p>
+<p>The default dense 0–10 view is grayscale. When expanded, negative source LLR
+appears as positive <code>-LLR</code> in muted blue
+<code>{RAW_LLR_POSITIVE_COLOR}</code>, while positive source LLR appears as
+negative <code>-LLR</code> in muted red
+<code>{RAW_LLR_NEGATIVE_COLOR}</code>. The four rows display the zero line.</p>
 <p>Values are Float32 rounded to three decimals for browser visualization;
 Parquet remains the canonical full-precision score product.</p>
 <p>One-based Parquet positions were converted explicitly to zero-based,
 half-open one-base BigWig intervals with UCSC chromosome names. Artifact
 revision: <code>{artifact_revision}</code>.</p>
+<p><a href="{repository_url}">GPN-Star scores on Hugging Face</a></p>
 </body>
 </html>
 """
@@ -838,10 +815,6 @@ def build_track_hub(
                     ),
                 )
                 _write_text(
-                    assembly_root / f"{group}Entropy.html",
-                    _render_entropy_description(score_set, artifact_revision),
-                )
-                _write_text(
                     assembly_root / f"{group}Logo.html",
                     _render_logo_description(score_set, artifact_revision),
                 )
@@ -897,6 +870,7 @@ def build_track_hub(
                 "artifact_revision": artifact_revision,
             }
             for (score_set, track), record in sorted(records.items())
+            if track != "entropy"
         ]
         if raw_llr_records is not None:
             track_urls.extend(
@@ -917,7 +891,7 @@ def build_track_hub(
                 for (score_set, track), record in sorted(raw_llr_records.items())
             )
         hub_manifest = {
-            "hub_manifest_version": 2 if raw_llr_records is not None else 1,
+            "hub_manifest_version": 3,
             "repository": REPOSITORY_ID,
             "hub_url": TRACK_HUB_URL,
             "artifact_revision": artifact_revision,
@@ -960,7 +934,7 @@ def build_track_hub(
                 else [
                     f"{score_set.name}/{track}"
                     for score_set in SCORE_SETS
-                    for track in TRACKS
+                    for track in HUB_LOGO_TRACKS
                 ]
             ),
             "files": hub_files,
@@ -1013,20 +987,43 @@ def _validate_extended_release_manifest(
         or validation.get("existing_v1_bigwigs_revalidated") is not False
         or validation.get("raw_llr_validation_passed") is not True
         or not isinstance(hub_tracks, list)
-        or len(hub_tracks) != 72
+        or len(hub_tracks) != 64
     ):
         raise ValueError("updated release manifest contract differs")
-    expected = {(record["score_set"], record["track"]): record for record in hub_tracks}
-    observed = set()
+    hub_records = {
+        (record["score_set"], record["track"]): record for record in hub_tracks
+    }
+    expected_hub_keys = {
+        (score_set.name, track)
+        for score_set in SCORE_SETS
+        for track in (*HUB_LOGO_TRACKS, *RAW_LLR_TRACKS)
+    }
+    if set(hub_records) != expected_hub_keys:
+        raise ValueError("active hub catalog differs from the release subset")
+    expected_release_keys = {
+        (score_set.name, track)
+        for score_set in SCORE_SETS
+        for track in (*TRACKS, *RAW_LLR_TRACKS)
+    }
+    observed: set[tuple[object, object]] = set()
     for record in files:
         if not isinstance(record, Mapping):
             raise ValueError("updated release BigWig records must be objects")
         key = (record.get("score_set"), record.get("track"))
-        hub_record = expected.get(key)
+        hub_record = hub_records.get(key)
+        expected_revision = (
+            hub_manifest["raw_llr_artifact_revision"]
+            if key[1] in RAW_LLR_TRACKS
+            else hub_manifest["artifact_revision"]
+        )
         if (
-            hub_record is None
+            key not in expected_release_keys
             or key in observed
-            or record.get("path") != hub_record.get("path")
+            or record.get("artifact_revision") != expected_revision
+        ):
+            raise ValueError(f"updated release identity differs: {key!r}")
+        if hub_record is not None and (
+            record.get("path") != hub_record.get("path")
             or record.get("assembly") != hub_record.get("assembly")
             or record.get("ucsc_assembly") != hub_record.get("source_ucsc_assembly")
             or record.get("size") != hub_record.get("size")
@@ -1035,9 +1032,9 @@ def _validate_extended_release_manifest(
             or record.get("zoom_levels") != hub_record.get("zoom_levels")
             or record.get("artifact_revision") != hub_record.get("artifact_revision")
         ):
-            raise ValueError(f"updated release identity differs: {key!r}")
+            raise ValueError(f"active hub identity differs: {key!r}")
         observed.add(key)
-    if observed != set(expected):
+    if observed != expected_release_keys:
         raise ValueError("updated release manifest catalog differs")
     if bigwig.get("total_bytes") != sum(int(record["size"]) for record in files):
         raise ValueError("updated release manifest byte total differs")
@@ -1063,10 +1060,11 @@ def _validate_extended_release_manifest(
 def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
     manifest = _read_json(metadata_root / "manifest" / "ucsc-hub.json")
     manifest_version = manifest.get("hub_manifest_version")
-    raw_llr_enabled = manifest_version == 2
-    expected_track_count = 72 if raw_llr_enabled else 40
+    raw_llr_artifact_revision = manifest.get("raw_llr_artifact_revision")
+    raw_llr_enabled = raw_llr_artifact_revision is not None
+    expected_track_count = 64 if raw_llr_enabled else 32
     if (
-        manifest_version not in {1, 2}
+        manifest_version != 3
         or manifest.get("repository") != REPOSITORY_ID
         or manifest.get("hub_url") != TRACK_HUB_URL
         or manifest.get("assembly_count") != len(HUB_ASSEMBLY_ORDER)
@@ -1078,7 +1076,6 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
     artifact_revision = _validate_revision(
         manifest.get("artifact_revision"), field="artifact_revision"
     )
-    raw_llr_artifact_revision = manifest.get("raw_llr_artifact_revision")
     if raw_llr_enabled:
         raw_llr_artifact_revision = _validate_revision(
             raw_llr_artifact_revision,
@@ -1095,8 +1092,6 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
             metadata_root / "manifest" / "release.json",
             manifest,
         )
-    elif raw_llr_artifact_revision is not None:
-        raise ValueError("legacy hub manifest cannot name a raw-LLR revision")
     files = manifest.get("files")
     if not isinstance(files, list) or not files:
         raise ValueError("UCSC hub manifest lacks file identities")
@@ -1110,7 +1105,6 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         expected_paths.update(
             {
                 f"ucsc/{assembly}/{group}.html",
-                f"ucsc/{assembly}/{group}Entropy.html",
                 f"ucsc/{assembly}/{group}Logo.html",
             }
         )
@@ -1138,6 +1132,14 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         observed_paths.add(relative_path)
     if expected_paths != observed_paths:
         raise ValueError("UCSC hub control and description file set differs")
+    repository_url = f"{HUGGING_FACE_URL}/datasets/{REPOSITORY_ID}"
+    for relative_path in expected_paths:
+        if relative_path.endswith(".html") and repository_url not in (
+            metadata_root / relative_path
+        ).read_text(encoding="utf-8"):
+            raise ValueError(
+                f"UCSC description does not link the dataset: {relative_path}"
+            )
     genomes = (metadata_root / "ucsc" / "genomes.txt").read_text(encoding="utf-8")
     if genomes != _render_genomes():
         raise ValueError("UCSC genomes.txt differs from the browser database mapping")
@@ -1208,7 +1210,10 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
     expected_tracks = {
         (score_set.name, track)
         for score_set in SCORE_SETS
-        for track in (*TRACKS, *(RAW_LLR_TRACKS if raw_llr_enabled else ()))
+        for track in (
+            *HUB_LOGO_TRACKS,
+            *(RAW_LLR_TRACKS if raw_llr_enabled else ()),
+        )
     }
     if observed_tracks != expected_tracks:
         raise ValueError("UCSC hub track records differ from the expected catalog")
@@ -1220,17 +1225,20 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
     )
     if any(track_db_text.count(url) != 1 for url in track_urls):
         raise ValueError("each pinned BigWig URL must appear once in trackDb")
+    if "Entropy" in track_db_text or "/entropy.bw" in track_db_text:
+        raise ValueError("entropy must not appear in the active UCSC hub")
     if track_db_text.count("container multiWig") != len(SCORE_SETS):
         raise ValueError("each score set must define one multiWig")
     if track_db_text.count("logo on") != len(SCORE_SETS):
         raise ValueError("each score set must enable sequence-logo rendering")
-    if "visibility dense" in track_db_text:
-        raise ValueError("no hub track may default to dense")
-    expected_full_count = len(SCORE_SETS) * (
-        2 + (1 + len(RAW_LLR_TRACKS) if raw_llr_enabled else 0)
-    )
-    if track_db_text.count("visibility full") != expected_full_count:
-        raise ValueError("entropy, logo, and LLR tracks must default to full")
+    expected_dense_count = len(SCORE_SETS) if raw_llr_enabled else 0
+    if track_db_text.count("visibility dense") != expected_dense_count:
+        raise ValueError("each -LLR composite must default to dense")
+    if track_db_text.count("visibility full") != len(SCORE_SETS):
+        raise ValueError("each sequence logo must default to full")
+    expected_compact_heights = len(SCORE_SETS) * (2 if raw_llr_enabled else 1)
+    if track_db_text.count("maxHeightPixels 100:16:16") != expected_compact_heights:
+        raise ValueError("logo or -LLR default height differs")
     if raw_llr_enabled:
         if track_db_text.count("compositeTrack on") != len(SCORE_SETS):
             raise ValueError("each score set must define one raw-LLR composite")
@@ -1239,8 +1247,24 @@ def _validate_local_metadata(metadata_root: Path) -> dict[str, Any]:
         )
         if track_db_text.count(signed_color_pair) != 32:
             raise ValueError("raw-LLR signed colors differ")
-        if track_db_text.count("autoScale group") != len(SCORE_SETS):
-            raise ValueError("raw-LLR group scaling differs")
+        expected_llr_settings = "\n".join(
+            [
+                "visibility dense",
+                "autoScale off",
+                "alwaysZero on",
+                "viewLimits 0:10",
+                "negateValues on",
+                "yLineOnOff on",
+                "yLineMark 0",
+                "graphTypeDefault bar",
+                "maxHeightPixels 100:16:16",
+                "windowingFunction mean+whiskers",
+            ]
+        )
+        if track_db_text.count(expected_llr_settings) != len(SCORE_SETS):
+            raise ValueError("-LLR display settings differ")
+        if "    visibility " in track_db_text:
+            raise ValueError("composite children must inherit -LLR visibility")
     readme = (metadata_root / "README.md").read_text(encoding="utf-8")
     if TRACK_HUB_URL not in readme:
         raise ValueError("dataset card does not link the public UCSC hub")
@@ -1465,8 +1489,8 @@ def _validate_track_hub(
     ]
     if len(tracks) != len(scope_keys):
         raise ValueError("hub validation scope does not resolve to unique tracks")
-    raw_llr_scope = manifest["hub_manifest_version"] == 2
-    expected_scope_count = 32 if raw_llr_scope else 40
+    raw_llr_scope = manifest.get("raw_llr_artifact_revision") is not None
+    expected_scope_count = 32
     if len(tracks) != expected_scope_count:
         raise ValueError(
             f"hub validation scope must contain {expected_scope_count} tracks"
@@ -1514,7 +1538,9 @@ def _validate_track_hub(
     }
     representative_checks = []
     for score_set in SCORE_SETS:
-        representative_track = RAW_LLR_TRACKS[0] if raw_llr_scope else "entropy"
+        representative_track = (
+            RAW_LLR_TRACKS[0] if raw_llr_scope else HUB_LOGO_TRACKS[0]
+        )
         representative = records_by_key[(score_set.name, representative_track)]
         chromosome_sizes = chromosomes_by_score_set[score_set.name]
         chromosome_order = [
@@ -1532,7 +1558,7 @@ def _validate_track_hub(
         zoom_start = max(0, start - 500)
         zoom_end = min(chromosome_sizes[chrom], start + 501)
         zoom_bins = min(10, zoom_end - zoom_start)
-        tracks_for_score_set = RAW_LLR_TRACKS if raw_llr_scope else TRACKS
+        tracks_for_score_set = RAW_LLR_TRACKS if raw_llr_scope else HUB_LOGO_TRACKS
         for track in tracks_for_score_set:
             record = records_by_key[(score_set.name, track)]
             value = _summary_values(
@@ -1586,7 +1612,7 @@ def _validate_track_hub(
         **common_report,
         "track_count": len(tracks),
         "validation_scope": (
-            "new_raw_llr_tracks_only" if raw_llr_scope else "legacy_v1_tracks"
+            "new_raw_llr_tracks_only" if raw_llr_scope else "logo_tracks_only"
         ),
         "existing_v1_bigwigs_revalidated": False if raw_llr_scope else True,
         "existing_raw_llr_bigwigs_revalidated": raw_llr_scope,
@@ -2156,8 +2182,8 @@ def publish_track_hub(
         if metadata_only
         else (
             "new_raw_llr_tracks_only"
-            if manifest["hub_manifest_version"] == 2
-            else "legacy_v1_tracks"
+            if manifest.get("raw_llr_artifact_revision") is not None
+            else "logo_tracks_only"
         )
     )
     if (
