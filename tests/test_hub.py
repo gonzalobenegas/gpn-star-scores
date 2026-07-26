@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import re
 import subprocess
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlparse
@@ -14,6 +13,7 @@ from gpn_star_scores.catalog import ASSEMBLIES, SCORE_SETS
 from gpn_star_scores.hub import (
     HUB_APPROVAL_ISSUE,
     HUB_ASSEMBLY_ORDER,
+    HUB_LOGO_TRACKS,
     HUB_QA_APPROVAL_ISSUE,
     HUB_TRACK_DB_DIRECTORY_ORDER,
     NUCLEOTIDE_COLORS,
@@ -155,7 +155,7 @@ def _write_validation_report(metadata: Path, path: Path) -> None:
             {
                 "valid": True,
                 "artifact_revision": ARTIFACT_REVISION,
-                "validation_scope": "legacy_v1_tracks",
+                "validation_scope": "logo_tracks_only",
                 "hub_manifest_sha256": sha256_file(
                     metadata / "manifest" / "ucsc-hub.json"
                 ),
@@ -238,16 +238,16 @@ def test_launch_links_preserve_ucsc_defaults_and_show_one_model() -> None:
         shown_groups = [key for key, value in query.items() if value == ["show"]]
         assert len(shown_groups) == 1
         group = shown_groups[0]
-        assert query[f"{group}Entropy"] == ["full"]
+        assert f"{group}Entropy" not in query
         assert query[f"{group}Logo"] == ["full"]
-        assert query[f"{group}RawLlr"] == ["full"]
+        assert query[f"{group}RawLlr"] == ["dense"]
 
         hidden_groups = [key for key, value in query.items() if value == ["hide"]]
         expected_hidden = 2 if link["ucsc_assembly"] == "hg38" else 0
         assert len(hidden_groups) == expected_hidden
 
 
-def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> None:
+def test_builds_one_multi_assembly_hub_with_logo_only(tmp_path: Path) -> None:
     metadata = _build_metadata(tmp_path)
 
     hub = (metadata / "ucsc" / "hub.txt").read_text()
@@ -264,11 +264,13 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
     hg38 = (metadata / "ucsc" / "hg38" / "trackDb.txt").read_text()
     assert hg38.count("superTrack on show") == 3
     assert hg38.count("container multiWig") == 3
-    assert hg38.count("graphTypeDefault bar") == 3
     assert hg38.count("logo on") == 3
     assert "visibility dense" not in hg38
-    assert hg38.count("visibility full") == 6
-    assert hg38.count("bigDataUrl ") == 15
+    assert hg38.count("visibility full") == 3
+    assert hg38.count("maxHeightPixels 100:16:16") == 3
+    assert hg38.count("bigDataUrl ") == 12
+    assert "Entropy" not in hg38
+    assert "/entropy.bw" not in hg38
     assert "shortLabel GPN-Star (V)" in hg38
     assert "shortLabel GPN-Star (M)" in hg38
     assert "shortLabel GPN-Star (P)" in hg38
@@ -280,16 +282,17 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         track_db = (metadata / "ucsc" / directory / "trackDb.txt").read_text()
         assert track_db.count("superTrack on show") == 1
         assert track_db.count("container multiWig") == 1
-        assert track_db.count("graphTypeDefault bar") == 1
         assert track_db.count("logo on") == 1
-        assert track_db.count("bigDataUrl ") == 5
+        assert track_db.count("maxHeightPixels 100:16:16") == 1
+        assert track_db.count("bigDataUrl ") == 4
+        assert "Entropy" not in track_db
         assert "shortLabel GPN-Star\n" in track_db
 
     assert f"/resolve/{ARTIFACT_REVISION}/bigwig/" in hg38
     assert "llr_A" not in hg38
     readme = (metadata / "README.md").read_text()
     assert TRACK_HUB_URL in readme
-    assert "one-dimensional\nentropy signal" in readme
+    assert "Entropy BigWigs remain available in the dataset" in readme
     assert readme.count("Open in UCSC") == 8
 
     links = browser_launch_links()
@@ -301,14 +304,15 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         assert query["hideTracks"] == ["1"]
         assert query["ignoreCookie"] == ["1"]
         group = next(key for key, value in query.items() if value == ["show"])
-        assert query[f"{group}Entropy"] == ["full"]
+        assert f"{group}Entropy" not in query
         assert query[f"{group}Logo"] == ["full"]
 
     hub_manifest = json.loads((metadata / "manifest" / "ucsc-hub.json").read_text())
+    assert hub_manifest["hub_manifest_version"] == 3
     assert hub_manifest["assembly_count"] == 6
     assert hub_manifest["score_set_count"] == 8
-    assert hub_manifest["track_count"] == 40
-    assert len(hub_manifest["files"]) == 33
+    assert hub_manifest["track_count"] == 32
+    assert len(hub_manifest["files"]) == 25
     assert all(score_set["browser_url"] for score_set in hub_manifest["score_sets"])
     tair10 = next(
         score_set
@@ -326,7 +330,7 @@ def test_builds_one_multi_assembly_hub_with_entropy_and_logo(tmp_path: Path) -> 
         f"https://huggingface.co/datasets/{REPOSITORY_ID}/resolve/"
         f"{ARTIFACT_REVISION}/bigwig/{score_set.name}/{track}.bw"
         for score_set in SCORE_SETS
-        for track in TRACKS
+        for track in HUB_LOGO_TRACKS
     }
 
 
@@ -335,24 +339,39 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
 
     hg38 = (metadata / "ucsc" / "hg38" / "trackDb.txt").read_text()
     assert hg38.count("compositeTrack on") == 3
-    assert "visibility dense" not in hg38
-    assert hg38.count("visibility full") == 21
-    assert hg38.count("autoScale group") == 3
+    assert hg38.count("visibility dense") == 3
+    assert hg38.count("visibility full") == 3
+    assert hg38.count("autoScale off") == 6
     assert hg38.count("alwaysZero on") == 3
+    assert hg38.count("viewLimits 0:10") == 3
+    assert hg38.count("negateValues on") == 3
     assert hg38.count("yLineMark 0") == 3
+    assert hg38.count("maxHeightPixels 100:16:16") == 6
     assert hg38.count("windowingFunction mean+whiskers") == 3
+    assert "    visibility " not in hg38
+    assert "shortLabel -LLR" in hg38
+    assert "longLabel GPN-Star (M) -LLR by allele" in hg38
+    assert "shortLabel -LLR A" in hg38
+    assert "longLabel GPN-Star (M) A -LLR" in hg38
     assert "mouseOverFunction" not in hg38
     assert RAW_LLR_POSITIVE_COLOR == "60,60,140"
     assert RAW_LLR_NEGATIVE_COLOR == "140,60,60"
     assert hg38.count(f"color {RAW_LLR_POSITIVE_COLOR}") == 12
     assert hg38.count(f"altColor {RAW_LLR_NEGATIVE_COLOR}") == 12
-    assert hg38.count("bigDataUrl ") == 27
+    assert hg38.count("bigDataUrl ") == 24
+    assert "Entropy" not in hg38
+    assert "/entropy.bw" not in hg38
     assert f"/resolve/{ARTIFACT_REVISION}/bigwig/" in hg38
     assert f"/resolve/{RAW_LLR_ARTIFACT_REVISION}/bigwig/" in hg38
 
     hub_manifest = json.loads((metadata / "manifest" / "ucsc-hub.json").read_text())
-    assert hub_manifest["hub_manifest_version"] == 2
-    assert hub_manifest["track_count"] == 72
+    assert hub_manifest["hub_manifest_version"] == 3
+    assert hub_manifest["track_count"] == 64
+    assert {track["track"] for track in hub_manifest["tracks"]} == {
+        *HUB_LOGO_TRACKS,
+        *RAW_LLR_TRACKS,
+    }
+    assert all(track["track"] != "entropy" for track in hub_manifest["tracks"])
     assert hub_manifest["raw_llr_artifact_revision"] == RAW_LLR_ARTIFACT_REVISION
     validation_links = {link["score_set"]: link for link in raw_llr_validation_links()}
     for score_set in hub_manifest["score_sets"]:
@@ -360,9 +379,9 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
         assert url == validation_links[score_set["name"]]["url"]
         query = parse_qs(urlparse(url).query)
         group = next(key for key, value in query.items() if value == ["show"])
-        assert query[f"{group}Entropy"] == ["hide"]
+        assert f"{group}Entropy" not in query
         assert query[f"{group}Logo"] == ["hide"]
-        assert query[f"{group}RawLlr"] == ["full"]
+        assert query[f"{group}RawLlr"] == ["dense"]
     assert len(hub_manifest["validation_scope_tracks"]) == 32
     assert all(
         any(track in item for track in RAW_LLR_TRACKS)
@@ -396,6 +415,7 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
         (record["score_set"], record["track"]): record
         for record in release_manifest["bigwig"]["files"]
     }
+    assert sum(record["track"] == "entropy" for record in release_records.values()) == 8
     assert all(
         release_records[(score_set.name, track)]["artifact_revision"]
         == ARTIFACT_REVISION
@@ -412,11 +432,16 @@ def test_builds_cadd_inspired_signed_raw_llr_extension(tmp_path: Path) -> None:
     tair10 = metadata / "ucsc" / "araTha1"
     raw_description = next(tair10.glob("*RawLlr.html")).read_text()
     assert "reference allele is assigned the explicit zero" in raw_description
-    assert "Positive scores use muted blue" in raw_description
+    assert "displayed value is <code>-llr_calibrated</code>" in raw_description
+    assert "negative source LLR\nappears as positive" in raw_description
+    assert "positive source LLR appears as\nnegative" in raw_description
+    assert "default dense 0–10 view is grayscale" in raw_description
     assert RAW_LLR_POSITIVE_COLOR in raw_description
     assert RAW_LLR_NEGATIVE_COLOR in raw_description
     readme = (metadata / "README.md").read_text()
-    assert "four signed A/C/G/T LLR tracks" in readme
+    assert "64 logo/LLR BigWigs" in readme
+    assert "Entropy BigWigs remain available in the dataset" in readme
+    assert "dense grayscale 0–10 view" in readme
     assert (
         """**`llr_calibrated`:** More negative = more constrained or larger effect.
 
@@ -480,26 +505,26 @@ chrom     pos ref  entropy_calibrated
     ]
     assert table_offsets == sorted(table_offsets)
     hub_description = (metadata / "ucsc" / "description.html").read_text()
-    assert "original entropy and sequence-logo data" in hub_description
+    assert "Entropy BigWigs remain available from the\nHugging Face dataset" in (
+        hub_description
+    )
     group_description = (
         metadata / "ucsc" / "hg38" / "gpnStarHg38V100200m.html"
     ).read_text()
-    assert "entropy and sequence-logo browser tracks" in group_description
+    assert "sequence-logo browser track" in group_description
     assert ARTIFACT_REVISION in group_description
     assert RAW_LLR_ARTIFACT_REVISION in group_description
     description_files = [
         metadata / "ucsc" / "description.html",
         *sorted((metadata / "ucsc").glob("*/*.html")),
     ]
-    user_facing_metadata = [
-        *(description_file.read_text() for description_file in description_files),
-        *(
-            track_db.read_text()
-            for track_db in sorted((metadata / "ucsc").glob("*/trackDb.txt"))
-        ),
-    ]
-    for text in user_facing_metadata:
-        assert re.search(r"\b(?:raw|calibrated)\b", text, re.IGNORECASE) is None
+    repository_url = f"https://huggingface.co/datasets/{REPOSITORY_ID}"
+    assert all(repository_url in path.read_text() for path in description_files)
+    assert not list((metadata / "ucsc").glob("*/*Entropy.html"))
+    assert all(
+        "Entropy" not in track_db.read_text()
+        for track_db in sorted((metadata / "ucsc").glob("*/trackDb.txt"))
+    )
 
 
 def test_build_rejects_output_that_contains_source_release_manifest(
@@ -535,14 +560,12 @@ def test_track_descriptions_preserve_score_and_coordinate_semantics(
     assert "genome GCF_000001735.4" in (metadata / "ucsc" / "genomes.txt").read_text()
     assert hub_database_name("tair10") == "GCF_000001735.4"
     assert "shortLabel GPN-Star\n" in track_db
-    assert len(html_files) == 3
-    entropy = next(value for name, value in html_files.items() if "Entropy" in name)
+    assert len(html_files) == 2
+    assert all("Entropy" not in name for name in html_files)
     logo = next(value for name, value in html_files.items() if "Logo" in name)
-    assert "GPN-Star entropy values" in entropy
-    assert "does not add an unreviewed biological directionality" in entropy
-    assert "zero-based,\nhalf-open one-base BigWig intervals" in entropy
     assert "p(base) * (2 - H)" in logo
     assert "not a model\nprobability" in logo
+    assert f"https://huggingface.co/datasets/{REPOSITORY_ID}" in logo
 
 
 class _FakeResponse:
@@ -625,16 +648,16 @@ def test_validation_checks_hub_ranges_chromosomes_and_zoom_values(
     )
     assert report["assembly_count"] == 6
     assert report["score_set_count"] == 8
-    assert report["track_count"] == 40
-    assert report["http_range_count"] == 40
-    assert len(report["chromosome_checks"]) == 40
+    assert report["track_count"] == 32
+    assert report["http_range_count"] == 32
+    assert len(report["chromosome_checks"]) == 32
     assert len(report["representative_checks"]) == 8
     assert all(
-        set(check["track_values"]) == set(TRACKS)
+        set(check["track_values"]) == set(HUB_LOGO_TRACKS)
         and check["zero_based_half_open"] is True
         for check in report["representative_checks"]
     )
-    assert "All 40 BigWig URLs" in markdown_path.read_text()
+    assert "All 32 BigWig URLs" in markdown_path.read_text()
 
 
 def test_extended_hub_validation_does_not_repeat_v1_bigwig_checks(
@@ -799,7 +822,7 @@ def test_public_validation_checks_published_files_and_remote_hub(
     assert report["valid"] is True
     assert report["credentials_sent"] is False
     assert report["revision"] == ARTIFACT_REVISION
-    assert report["file_count"] == 35
+    assert report["file_count"] == 27
     assert report["hub_validation"]["hub_target"].endswith("/ucsc/hub.txt")
 
 
@@ -832,7 +855,7 @@ def test_public_metadata_only_validation_never_requests_a_bigwig(
     )
 
     assert report["valid"] is True
-    assert report["file_count"] == 45
+    assert report["file_count"] == 37
     assert report["hub_validation"]["validation_scope"] == "hub_metadata_only"
     assert report["hub_validation"]["http_range_count"] == 0
 
@@ -1200,7 +1223,7 @@ def test_existing_publication_validation_recovers_without_a_commit(
     assert publication["valid"] is True
     assert publication["status"] == "validated_existing_publication"
     assert publication["final_revision"] == "b" * 40
-    assert len(publication["published_files"]) == 35
+    assert len(publication["published_files"]) == 27
     assert publication["recovered_from_status"] == "published_validation_failed"
     assert "validation_error" not in publication
     assert success_marker.read_text() == f"{'b' * 40}\n"

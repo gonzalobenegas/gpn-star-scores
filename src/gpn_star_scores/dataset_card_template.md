@@ -84,8 +84,8 @@ configs:
 Genome-wide, mutation-rate-calibrated GPN-Star constraint and variant scores for
 eight score sets covering human, mouse, chicken, *D. melanogaster*,
 *C. elegans*, and *A. thaliana*. Canonical scores are available as
-chromosome-sharded Parquet; 72 BigWigs and a multi-assembly UCSC track hub
-provide browser-ready views.
+chromosome-sharded Parquet. Hugging Face hosts 72 BigWigs; a multi-assembly
+UCSC track hub references the 64 logo/LLR views.
 
 ## Table of contents
 
@@ -127,7 +127,9 @@ documented.
 - **290 canonical chromosome shards** containing @@TOTAL_ROWS_FORMATTED@@ rows.
 - **72 browser BigWigs:** 40 v1 entropy and sequence-logo artifacts plus 32
   signed A/C/G/T LLR artifacts.
-- **One multi-assembly UCSC hub** spanning six working UCSC databases.
+- **One multi-assembly UCSC hub** spanning six working UCSC databases and
+  referencing 64 logo/LLR BigWigs. Entropy BigWigs remain downloadable but are
+  not displayed in the hub.
 - **Machine-readable manifests** containing file identities, sizes, SHA-256
   checksums, row counts, and immutable revision provenance.
 
@@ -206,8 +208,9 @@ The release exposes three distinct LLR-related representations:
 1. **Canonical Parquet `llr_calibrated`:** the supplied full-precision
    variant-level `Float32` value.
 2. **Signed A/C/G/T LLR BigWigs:** browser values that retain each alternate
-   allele's `llr_calibrated`; the reference allele is assigned an explicit zero
-   for display. These tracks are rounded to three decimal places.
+   allele's `llr_calibrated`; the reference allele is assigned an explicit zero.
+   UCSC displays these tracks as `-LLR` without modifying the files. These tracks
+   are rounded to three decimal places.
 3. **A/C/G/T sequence-logo BigWigs:** visualization heights derived from
    calibrated LLRs. They are not LLRs, probabilities, or canonical score
    products.
@@ -296,25 +299,28 @@ The stable
 loads eight GPN-Star model groups across six working UCSC databases. Each model
 group includes:
 
-- a one-dimensional entropy signal;
 - four derived A/C/G/T sequence-logo tracks; and
-- four signed A/C/G/T LLR tracks with an explicit zero for the reference
+- four signed A/C/G/T tracks displayed as `-LLR`, with an explicit zero for the
+  reference
   allele.
 
-The signed LLR rows share a zero-centered scale: positive values use muted blue
-(`60,60,140`) and negative values use muted red (`140,60,60`), matching UCSC's
-hg38 `phyloP100way` track. The model-specific links below set entropy, the
-sequence logo, and signed LLR to `full`.
+Entropy BigWigs remain available in the dataset but are not part of the UCSC
+hub. The logo and `-LLR` default to 16 pixels high. The `-LLR` rows default to
+a dense grayscale 0–10 view and use UCSC's display-time negation: higher
+displayed values correspond to more-negative source LLR and therefore greater
+constraint or a larger predicted functional effect. When expanded, negative
+source LLR appears as positive `-LLR` in muted blue (`60,60,140`), while
+positive source LLR appears as negative `-LLR` in muted red (`140,60,60`).
 
 ### Model-specific launch links
 
 The links below start from UCSC's clean default settings with
 `ignoreCookie=1`, retain UCSC's native default context tracks, and add one
-selected GPN-Star model group: entropy, sequence logo, and signed LLR. For
-assemblies with multiple GPN-Star models, the other GPN-Star groups are
-explicitly hidden so that only the selected model is displayed. The links
-intentionally do **not** use `hideTracks=1`, because that parameter would
-remove the native context shown in the default Genome Browser view.
+selected GPN-Star model group with the sequence logo at `full` and `-LLR` at
+`dense`. For assemblies with multiple GPN-Star models, the other GPN-Star
+groups are explicitly hidden so that only the selected model is displayed.
+The links intentionally do **not** use `hideTracks=1`, because that parameter
+would remove the native context shown in the default Genome Browser view.
 
 The links do not set `position`. Each one therefore inherits whatever locus and
 native context tracks UCSC currently defines as the default for that database.

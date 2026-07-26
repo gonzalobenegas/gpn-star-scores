@@ -198,8 +198,9 @@ hub:
   # evidence and skip all BigWig requests during local and public validation.
   metadata_only_update: false
   release_manifest: null
-  # The immutable v1 artifact revision remains the source of entropy and logo
-  # tracks. Configure both raw-LLR fields to add the focused post-v1 extension.
+  # The immutable v1 artifact revision remains the source of logo tracks and
+  # retained entropy artifacts; entropy remains in the release catalog but is
+  # not referenced by the hub.
   artifact_revision: null
   raw_llr_validation: null
   raw_llr_artifact_revision: null

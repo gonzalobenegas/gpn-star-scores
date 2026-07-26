@@ -581,19 +581,24 @@ def render_dataset_card(
 The four additional `llr_A`, `llr_C`, `llr_G`, and `llr_T` BigWigs retain the
 signed `llr_calibrated` values for alternate alleles and use an explicit zero
 for the reference allele. They do not use or derive `abs_llr_calibrated`.
-These are three-decimal Float32 browser views; Parquet remains canonical.
+These are three-decimal Float32 browser views; Parquet remains canonical. UCSC
+displays them as `-LLR` without modifying the BigWig values. Higher displayed
+values correspond to more-negative source LLR and therefore greater constraint
+or a larger predicted functional effect.
 """
         raw_llr_browser = """
-The LLR composite follows the CADD organization of separate allele rows,
-adapted for signed scores: positive values use muted blue (`60,60,140`),
-negative values use muted red (`140,60,60`), all four rows share their scale,
-and the zero line remains visible. Entropy and LLR both default to `full`.
+The `-LLR` composite follows the CADD organization of separate allele rows.
+It defaults to a dense grayscale 0–10 view at 16 pixels and negates source LLR
+at display time. When expanded, negative source LLR appears as positive `-LLR`
+in muted blue (`60,60,140`), while positive source LLR appears as negative
+`-LLR` in muted red (`140,60,60`).
 """
         raw_llr_catalog = f"""
 The expanded public catalog contains **72 BigWigs**: the 40 immutable v1
 entropy/logo artifacts remain pinned to
 `{v1_provenance["revision"]}`, while the 32 LLR artifacts are pinned to
-`{raw_llr_provenance["revision"]}`.
+`{raw_llr_provenance["revision"]}`. The active UCSC hub references 64 of these:
+32 logo and 32 LLR BigWigs. Entropy remains downloadable but absent from UCSC.
 """
         raw_llr_layout = ",llr_A,llr_C,llr_G,llr_T"
         raw_llr_manifest = (
@@ -652,12 +657,12 @@ product.
 ## UCSC Genome Browser
 
 Use the single [GPN-Star multi-assembly track hub]({TRACK_HUB_URL}) to load the
-browser tracks. Each model group contains a conventional one-dimensional
-entropy signal and one stacked A/C/G/T sequence-logo view. The hub covers
-`hg38`, `ce11`, `dm6`, `galGal6`, the TAIR10 GenArk database
-`GCF_000001735.4`, and `mm39`; its BigWig URLs pin an immutable
-artifact revision even though this entry URL follows the current validated hub
-metadata.
+browser tracks. Each model group contains one stacked A/C/G/T sequence-logo
+view, defaulting to 16 pixels. Entropy BigWigs remain available in the dataset
+but are not displayed in the hub. The hub covers `hg38`, `ce11`, `dm6`,
+`galGal6`, the TAIR10 GenArk database `GCF_000001735.4`, and `mm39`; its BigWig
+URLs pin an immutable artifact revision even though this entry URL follows the
+current validated hub metadata.
 {raw_llr_browser}
 {launch_section}
 

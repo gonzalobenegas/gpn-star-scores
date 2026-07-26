@@ -109,29 +109,39 @@ publisher report and never creates a second commit.
 
 After artifact publication, configure the hub with `raw_llr_validation`,
 `raw_llr_artifact_revision`, and the exact `source_revision` used to render the
-expanded dataset card. Existing entropy/logo URLs remain pinned to the
-immutable v1 artifact revision; only `llr_{A,C,G,T}` URLs use the new revision.
+expanded dataset card. Existing entropy/logo artifacts remain pinned to the
+immutable v1 artifact revision; only `llr_{A,C,G,T}` uses the new revision.
+After issue #28, the entropy BigWigs remain in Hugging Face but are no longer
+referenced by the hub. The 32 logo URLs retain the v1 revision.
 
 The browser presentation adapts the
 [UCSC CADD v1.7 track](https://genome.ucsc.edu/cgi-bin/hgTrackUi?db=hg38&g=caddSuper1_7)
 organization:
 
 - one `compositeTrack` per model with separate A, C, G, and T child rows;
-- `full` on the composite and every child so signed colors are visible;
-- shared group auto-scaling;
+- `dense` on the composite, inherited by every child;
+- `negateValues on`, so UCSC displays `-llr_calibrated` without changing the
+  BigWig values;
+- automatic scaling disabled with a default 0–10 viewing range;
+- a default/minimum height of 16 pixels;
 - an always-visible zero baseline;
 - `mean+whiskers` windowing; and
-- muted blue (`60,60,140`) for positive LLR and muted red (`140,60,60`) for
-  negative LLR, matching UCSC's hg38 `phyloP100way` track.
+- dense grayscale rendering, with muted blue (`60,60,140`) for positive
+  displayed `-LLR` and muted red (`140,60,60`) for negative displayed `-LLR`
+  when expanded.
 
-Entropy defaults to `full`. The existing derived sequence logo remains
-unchanged, defaults to `full`, and continues using nucleotide colors. Initial
-artifact validation
-ran `hubCheck -noTracks -checkSettings` for the complete metadata structure and
+Negative source LLR therefore appears as positive `-LLR` in blue, while
+positive source LLR appears as negative `-LLR` in red. Higher displayed values
+correspond to more-negative source LLR and therefore greater constraint or a
+larger predicted functional effect.
+
+The existing derived sequence logo remains unchanged, defaults to `full` at 16
+pixels, and continues using nucleotide colors. Initial artifact validation ran
+`hubCheck -noTracks -checkSettings` for the complete metadata structure and
 scoped BigWig range, header, base, and zoom checks to the 32 new tracks.
 Presentation-only follow-ups use metadata-only validation and do not request
 any BigWig. Public hub updates use the existing optimistic, approval-gated
-`publish_hub` target.
+`publish_hub` target and preserve all 72 artifact identities.
 
 CADD's native trackDb uses `mouseOverFunction noAverage`, but UCSC's public
 hub settings validator rejects that native-only setting. The hub therefore
